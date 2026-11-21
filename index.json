@@ -1223,17 +1223,30 @@
     },
     "dev.ketsuyumi.ignore-by-role": {
       "name": "Ignore by Role",
-      "description": "Long-press a server and choose Ignore by role: pick a role, see the people who have it, tick who to ignore (or unignore) and confirm. Like Block by ID, per server and role.",
+      "description": "Ignore people by role: type a server and a role (its name, ID or @mention), or long-press a server and choose Ignore by role, then tick who to ignore (or unignore) and confirm.",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "UserMinusIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.1.0"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.ignore-by-role@1.0.0.zip",
           "sha256": "fc0d74be78cf355beb0161d4fc8140f96c8f84f227995e59fec49ff644bb99fe",
           "size": 4585,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.1.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.ignore-by-role@1.1.0.zip",
+          "sha256": "aae7a6e2c2c5791f19165572f604fc387064402e4033b290f3d51b256684bf78",
+          "size": 5077,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
