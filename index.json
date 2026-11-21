@@ -324,13 +324,26 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "ReactionIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.0.1"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.compact-status@1.0.0.zip",
           "sha256": "bbf1806ea20e7737a6534261281c885b21697d848b3b6131a73e603c97046001",
           "size": 2533,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.1": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.compact-status@1.0.1.zip",
+          "sha256": "b2f83c7e465a17a9b5c5dea06a7d16b2f6c518d84086c1a95bf9ce574add425d",
+          "size": 2733,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
