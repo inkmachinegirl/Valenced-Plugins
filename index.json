@@ -941,6 +941,30 @@
         }
       }
     },
+    "dev.ketsuyumi.hide-blocked-typing": {
+      "name": "Hide Blocked Typing",
+      "description": "Never see people you blocked or ignored as typing: not in the chat, the DM list or other plugins' typing bubbles.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "DenyIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-blocked-typing@1.0.0.zip",
+          "sha256": "24fffaaa3d6b146debdca61a615e9281caa1fece59993c0ce831f4895187bfb2",
+          "size": 1507,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.hide-dms": {
       "name": "Hide DMs",
       "description": "Hide chosen DMs and group DMs, or all of them, from your DM list without leaving them.",
