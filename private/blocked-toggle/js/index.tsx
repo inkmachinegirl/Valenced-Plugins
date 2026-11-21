@@ -4,9 +4,12 @@ import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
 import * as discordFinders from '@valenced/discord/utils/modules/finders'
 import { Stores } from '@valenced/discord/flux'
+import { lookupModule } from '@valenced/modules/finders'
+import { withProps } from '@valenced/modules/finders/filters'
 import { instead } from '@valenced/patcher'
+import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
 import { isValidElement, useEffect, useState } from 'react'
-import { Pressable, ScrollView, Text } from 'react-native'
+import { Pressable, ScrollView, View } from 'react-native'
 import { findModule } from './find'
 
 /**
@@ -87,9 +90,53 @@ const icon = (on: boolean) => {
 			'ic_eye_slash',
 			'ic_visibility_off',
 		]) ?? eye
-	status.icon =
-		typeof eye === 'number' ? 'Found' : 'Not found (an emoji is drawn instead)'
+	if (typeof eye === 'number') status.icon = 'Found'
 	return on ? eye : eyeOff
+}
+
+/** The colour of the header's back arrow (and its icons). */
+function iconColor(): string {
+	try {
+		const T = (Tokens as any).default ?? Tokens
+		const v = T.internal.resolveSemanticColor(
+			(Stores as any).ThemeStore?.theme,
+			T.colors.INTERACTIVE_TEXT_DEFAULT ?? T.colors.INTERACTIVE_NORMAL,
+		)
+		if (typeof v === 'string') return v
+	} catch {}
+	return '#b5bac1'
+}
+
+/** A plain outlined eye (slashed when hidden), only when Discord's own eye icons aren't there. */
+const eyeSvg = (c: string, slash: boolean) =>
+	`<svg viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/>${slash ? '<path d="M4 4l16 16"/>' : ''}</svg>`
+
+let svgXml: any
+function MinimalEye({ on }: { on: boolean }) {
+	const color = iconColor()
+	// Discord's own icons first: the same line style as search, bell and settings.
+	const Icon: any = on
+		? lookupGeneratedIconComponent('EyeIcon' as any)
+		: (lookupGeneratedIconComponent('EyeSlashIcon' as any) ??
+			lookupGeneratedIconComponent('EyeIcon' as any))
+	if (Icon) {
+		status.icon = "Discord's eye icon"
+		return <Icon size="md" color={color} />
+	}
+	if (svgXml === undefined)
+		try {
+			const [mod] = lookupModule((withProps as any)('SvgXml')) as any
+			svgXml = mod?.SvgXml ?? mod?.default?.SvgXml ?? null
+		} catch {
+			svgXml = null
+		}
+	if (svgXml) {
+		status.icon = 'Drawn eye'
+		const Xml = svgXml
+		return <Xml xml={eyeSvg(color, !on)} width={24} height={24} />
+	}
+	status.icon = 'No icon available'
+	return <View style={{ width: 24, height: 24 }} />
 }
 
 /** Discord's useToken hook, which the header's own buttons read their size and look from. */
@@ -133,9 +180,10 @@ function EyeButton({ channelId }: { channelId: string }) {
 					on ? 'Hide blocked messages' : 'Show blocked messages'
 				}
 				onPress={() => toggle(channelId)}
-				style={{ padding: 8, opacity: on ? 1 : 0.6 }}
+				hitSlop={8}
+				style={{ padding: 8 }}
 			>
-				<Text style={{ fontSize: 20 }}>{on ? '👁' : '🙈'}</Text>
+				<MinimalEye on={on} />
 			</Pressable>
 		)
 	return (
