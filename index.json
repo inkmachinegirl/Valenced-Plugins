@@ -294,6 +294,30 @@
         }
       }
     },
+    "dev.ketsuyumi.blocked-toggle": {
+      "name": "Blocked Messages Toggle",
+      "description": "An eye button in a channel's details header (next to search, bell and settings) that shows or hides messages from people you blocked or ignored, per channel.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "EyeIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.blocked-toggle@1.0.0.zip",
+          "sha256": "12a89c9d159e045106af42e0c35f3ab705a8531a17f4e25c9aa534fb86ba0610",
+          "size": 2384,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.bulk-mute": {
       "name": "Bulk Mute",
       "description": "A bell next to a server's search bar: tap channels to select them, like selecting messages on WhatsApp, then mute them all forever at once (or unmute).",
