@@ -1,11 +1,11 @@
 {
 	"format": 1,
 	"id": "dev.ketsuyumi.close-dms",
-	"name": "Close DMs",
+	"name": "DM Cleanup",
 	"description": "A smaller Add Friends button and a select button next to + on the Messages tab: tick DMs and close them all at once (they leave your list; the messages stay).",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "CheckmarkLargeIcon",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
