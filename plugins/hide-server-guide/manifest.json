@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.hide-server-guide",
+	"name": "Hide Server Guide",
+	"description": "Removes the Server Guide row from the top of every server's channel list.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "EyeSlashIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

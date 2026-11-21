@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.unfollow-category",
+	"name": "Unfollow Category",
+	"description": "In a server's Channels & Roles, an Unfollow all link next to Follow Category unticks every channel in that category at once, even when the category box is already unticked.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "ChannelListIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
