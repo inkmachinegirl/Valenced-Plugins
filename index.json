@@ -1023,13 +1023,26 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "CalendarIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.1.0"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-empty-days@1.0.0.zip",
           "sha256": "2e754e99d516ef5e3a1c9c88e3c79f5303f0d65d4847ebefa18d9a56e5652ca3",
           "size": 2660,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.1.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-empty-days@1.1.0.zip",
+          "sha256": "1e78d5c0e4a721045b30b452c45f57cecfeeaf9f73a428dc40f2c7dfd57bf5e2",
+          "size": 2669,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
