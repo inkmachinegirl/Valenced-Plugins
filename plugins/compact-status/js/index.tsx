@@ -1,6 +1,5 @@
 import { ActionSheetActionCreators } from '@valenced/discord/actions'
 import { Tokens } from '@valenced/discord/common/tokens'
-import { Design } from '@valenced/discord/design'
 import { Stores } from '@valenced/discord/flux'
 import * as discordFinders from '@valenced/discord/utils/modules/finders'
 import { instead } from '@valenced/patcher'
@@ -72,7 +71,6 @@ function avatarUrl(): string | undefined {
 }
 
 function CompactStatus() {
-	const { Text } = Design as any
 	const [status, set] = useState(currentStatus)
 	useEffect(() => {
 		const stores = [S().UserSettingsProtoStore, S().SelfPresenceStore]
@@ -85,7 +83,7 @@ function CompactStatus() {
 	const bg = sheetColor()
 	const avatar = avatarUrl()
 	return (
-		<View style={{ alignItems: 'center', gap: 14, paddingTop: 4 }}>
+		<View style={{ alignItems: 'center', gap: 18, paddingTop: 8 }}>
 			{avatar ? (
 				<View
 					style={{
@@ -103,7 +101,7 @@ function CompactStatus() {
 					/>
 				</View>
 			) : null}
-			<View style={{ flexDirection: 'row', gap: 18 }}>
+			<View style={{ flexDirection: 'row', gap: 22, alignItems: 'center' }}>
 				{ORDER.map(s => {
 					const on = s === status
 					return (
@@ -119,22 +117,19 @@ function CompactStatus() {
 								}
 								;(ActionSheetActionCreators as any).hideActionSheet?.()
 							}}
+							hitSlop={8}
 							style={{
-								padding: 5,
-								borderRadius: 30,
-								borderWidth: 2,
-								borderColor: on ? COLORS[s] : 'transparent',
-								opacity: on ? 1 : 0.8,
+								width: 52,
+								height: 52,
+								alignItems: 'center',
+								justifyContent: 'center',
 							}}
 						>
-							<StatusShape status={s} size={38} bg={bg} />
+							<StatusShape status={s} size={on ? 50 : 40} bg={bg} />
 						</Pressable>
 					)
 				})}
 			</View>
-			<Text variant="text-sm/semibold" style={{ color: COLORS[status] }}>
-				{LABEL[status]}
-			</Text>
 		</View>
 	)
 }
@@ -142,20 +137,19 @@ function CompactStatus() {
 const typeName = (t: any) => t?.displayName ?? t?.name ?? t?.type?.name ?? ''
 
 /** Swaps the status list for the compact row and tightens the spacing. */
-function rework(node: any, statusOnly: boolean, depth = 0): any {
+function rework(node: any, depth = 0): any {
 	if (!isValidElement<any>(node) || depth > 6) return node
 	if (typeName(node.type) === 'YouStatusRadioGroup')
 		return <CompactStatus key="compact-status" />
 	const p: any = node.props
 	const patch: any = {}
-	// The "Change Online Status" title: the avatar and icons say it.
-	if (statusOnly && p.header !== undefined && 'startExpanded' in p)
-		patch.header = null
+	// The sheet's title ("Change Online Status"): the avatar and icons say it.
+	if (p.header != null && 'startExpanded' in p) patch.header = null
 	if (typeof p.spacing === 'number' && p.spacing > 12) patch.spacing = 12
 	const kids = p.children
 	if (kids != null && typeof kids === 'object') {
 		const list = Array.isArray(kids) ? kids : [kids]
-		const next = list.map(k => rework(k, statusOnly, depth + 1))
+		const next = list.map(k => rework(k, depth + 1))
 		if (next.some((k, i) => k !== list[i]))
 			return cloneElement(node, patch, ...next)
 	}
@@ -181,7 +175,7 @@ export default plugin({
 						function (this: unknown, args: any[], orig: (...a: any[]) => any) {
 							const out = orig.apply(this, args)
 							try {
-								return rework(out, !!args[0]?.statusOnly)
+								return rework(out)
 							} catch {
 								return out
 							}
