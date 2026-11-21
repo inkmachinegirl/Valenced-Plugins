@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.hide-empty-days",
+	"name": "Hide Empty Days",
+	"description": "Removes chat date lines for days with nothing to show, like the long runs of dates left behind when everyone who talked that day is blocked, ignored or hidden by another plugin.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "CalendarIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
