@@ -318,6 +318,30 @@
         }
       }
     },
+    "dev.ketsuyumi.close-dms": {
+      "name": "Close DMs",
+      "description": "A smaller Add Friends button and a select button next to + on the Messages tab: tick DMs and close them all at once (they leave your list; the messages stay).",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "CheckmarkLargeIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.close-dms@1.0.0.zip",
+          "sha256": "d062f26ecf5d57bdf9ce7db7a3f40161d6208eeef0e01fbabc8dd1c88b010934",
+          "size": 3614,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.compact-status": {
       "name": "Compact Status",
       "description": "A smaller Change Online Status sheet: your avatar and the four statuses as one row of big icons (tap one), with the custom status under them.",
