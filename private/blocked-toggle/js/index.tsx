@@ -4,9 +4,9 @@ import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
 import * as discordFinders from '@valenced/discord/utils/modules/finders'
 import { Stores } from '@valenced/discord/flux'
-import { after, instead } from '@valenced/patcher'
+import { instead } from '@valenced/patcher'
 import { isValidElement, useEffect, useState } from 'react'
-import { ScrollView } from 'react-native'
+import { Pressable, ScrollView, Text } from 'react-native'
 import { findModule } from './find'
 
 /**
@@ -41,6 +41,9 @@ function load() {
 	ignoredToo = s.ignored
 }
 
+/** For Settings → Status. */
+const status = { hooked: false, calls: 0, drawn: 0, icon: 'Not looked up yet' }
+
 const listeners = new Set<() => void>()
 function toggle(channelId: string) {
 	const on = !shown.has(channelId)
@@ -65,9 +68,27 @@ const channelOf = (m: any): string | undefined =>
 let eye: number | undefined
 let eyeOff: number | undefined
 const icon = (on: boolean) => {
-	eye ??= getAssetIdByName('EyeIcon') ?? getAssetIdByName('ic_eye')
+	const first = (names: string[]) =>
+		names
+			.map(n => getAssetIdByName(n))
+			.find((id): id is number => typeof id === 'number')
+	eye ??= first([
+		'EyeIcon',
+		'EyeOpenIcon',
+		'VisibilityIcon',
+		'ic_eye',
+		'ic_visibility',
+	])
 	eyeOff ??=
-		getAssetIdByName('EyeSlashIcon') ?? getAssetIdByName('ic_eye_slash') ?? eye
+		first([
+			'EyeSlashIcon',
+			'EyeClosedIcon',
+			'EyeOffIcon',
+			'ic_eye_slash',
+			'ic_visibility_off',
+		]) ?? eye
+	status.icon =
+		typeof eye === 'number' ? 'Found' : 'Not found (an emoji is drawn instead)'
 	return on ? eye : eyeOff
 }
 
@@ -104,7 +125,19 @@ function EyeButton({ channelId }: { channelId: string }) {
 		}
 	}, [channelId])
 	const src = icon(on)
-	if (!IconButton || typeof src !== 'number') return null
+	if (!IconButton || typeof src !== 'number')
+		return (
+			<Pressable
+				accessibilityRole="button"
+				accessibilityLabel={
+					on ? 'Hide blocked messages' : 'Show blocked messages'
+				}
+				onPress={() => toggle(channelId)}
+				style={{ padding: 8, opacity: on ? 1 : 0.6 }}
+			>
+				<Text style={{ fontSize: 20 }}>{on ? '👁' : '🙈'}</Text>
+			</Pressable>
+		)
 	return (
 		<IconButton
 			icon={src}
@@ -154,6 +187,17 @@ function SettingsPage() {
 					}}
 				/>
 			</TableRowGroup>
+			<TableRowGroup title="Status">
+				<TableRow
+					label="Member list top bar"
+					subLabel={
+						status.hooked
+							? `Hooked · asked ${status.calls}× · eye added ${status.drawn}×`
+							: "Not found yet (open a channel's member list)"
+					}
+				/>
+				<TableRow label="Eye icon" subLabel={status.icon} />
+			</TableRowGroup>
 		</ScrollView>
 	)
 }
@@ -190,28 +234,37 @@ export default plugin({
 						? mod
 						: mod?.default
 				if (typeof host?.getChannelDetailsButtons !== 'function') return
+				status.hooked = true
 				cleanup(
-					after(host, 'getChannelDetailsButtons', ((
-						ret: unknown,
-						args: any[],
-					) => {
-						const channelId = args?.[0]?.id
-						if (
-							!Array.isArray(ret) ||
-							!ret.length ||
-							typeof channelId !== 'string'
-						)
-							return ret
-						// The header maps this list to buttons: the eye is added to that map's result.
-						const list: any = [...ret]
-						list.map = function (fn: any, self?: unknown) {
-							const out = Array.prototype.map.call(this, fn, self) as any[]
-							if (!out.some(el => isValidElement(el))) return out
-							out.push(<EyeButton key="blocked-toggle" channelId={channelId} />)
-							return out
-						}
-						return list
-					}) as never),
+					// `instead`, not `after`: Valenced's after hooks get only the result, and the
+					// channel is in the arguments.
+					instead(
+						host,
+						'getChannelDetailsButtons',
+						function (this: unknown, args: any[], orig: (...a: any[]) => any) {
+							const ret = Reflect.apply(orig, this, args)
+							status.calls++
+							const channelId = args?.[0]?.id
+							if (
+								!Array.isArray(ret) ||
+								!ret.length ||
+								typeof channelId !== 'string'
+							)
+								return ret
+							// The header maps this list to buttons: the eye is added to that map's result.
+							const list: any = [...ret]
+							list.map = function (fn: any, self?: unknown) {
+								const out = Array.prototype.map.call(this, fn, self) as any[]
+								if (!out.some(el => isValidElement(el))) return out
+								status.drawn++
+								out.push(
+									<EyeButton key="blocked-toggle" channelId={channelId} />,
+								)
+								return out
+							}
+							return list
+						},
+					),
 				)
 			}),
 			() => {

@@ -5,7 +5,7 @@
 	"description": "An eye button on the member list / channel details top bar (next to search, bell and settings) that shows or hides messages from people you blocked or ignored, per channel.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "EyeIcon",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
