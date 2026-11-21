@@ -1,7 +1,4 @@
-import {
-	AlertActionCreators,
-	ToastActionCreators,
-} from '@valenced/discord/actions'
+import { ToastActionCreators } from '@valenced/discord/actions'
 import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
 import { Stores } from '@valenced/discord/flux'
@@ -84,42 +81,25 @@ function Picker({ onClose }: { onClose: () => void }) {
 			else next.add(id)
 			return next
 		})
-	const confirm = () => {
+	// One tap closes them: no confirmation (the messages stay, and a DM comes back when either
+	// of you writes).
+	const run = async () => {
 		const ids = all.filter(d => picked.has(d.id)).map(d => d.id)
 		if (!ids.length || running) return
-		const { AlertModal, AlertActionButton } = Design as any
-		;(AlertActionCreators as any).openAlert(
-			'close-dms',
-			<AlertModal
-				title={`Close ${ids.length} DM${ids.length === 1 ? '' : 's'}?`}
-				content="They leave your DM list. The messages aren't deleted: a DM comes back when either of you sends a message, or when you open it from their profile."
-				actions={
-					<>
-						<AlertActionButton
-							text="Close"
-							variant="destructive"
-							onPress={async () => {
-								running = true
-								cancel = false
-								setProgress(`0 / ${ids.length}`)
-								const r = await closeAll(
-									ids,
-									(d, f) => setProgress(`${d + f} / ${ids.length}`),
-									() => cancel,
-								)
-								running = false
-								setProgress(undefined)
-								toast(
-									`Closed ${r.done}${r.failed ? `, ${r.failed} failed (${r.lastError})` : ''}`,
-								)
-								onClose()
-							}}
-						/>
-						<AlertActionButton text="Cancel" variant="secondary" />
-					</>
-				}
-			/>,
+		running = true
+		cancel = false
+		setProgress(`0 / ${ids.length}`)
+		const r = await closeAll(
+			ids,
+			(d, f) => setProgress(`${d + f} / ${ids.length}`),
+			() => cancel,
 		)
+		running = false
+		setProgress(undefined)
+		toast(
+			`Closed ${r.done}${r.failed ? `, ${r.failed} failed (${r.lastError})` : ''}`,
+		)
+		onClose()
 	}
 	return (
 		<View style={{ flex: 1, padding: 16, paddingTop: 48, gap: 10 }}>
@@ -196,7 +176,7 @@ function Picker({ onClose }: { onClose: () => void }) {
 					text={`Close ${picked.size} DM${picked.size === 1 ? '' : 's'}`}
 					variant="destructive"
 					disabled={!picked.size}
-					onPress={confirm}
+					onPress={run}
 				/>
 			)}
 		</View>
