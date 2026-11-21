@@ -39,7 +39,7 @@ function SettingsPage() {
 				/>
 				<TableSwitchRow
 					label="Load past hidden messages"
-					subLabel="When the oldest loaded messages are all hidden (ignored, blocked or hidden by another plugin), older ones load by themselves until there's something to see, so you don't have to tap Load more messages. Up to 20 pages in a row"
+					subLabel="Keeps enough shown messages loaded above you: older pages load in the background while the oldest ones are mostly hidden (ignored, blocked or hidden by another plugin), so you don't reach Load more messages. Up to 20 pages in a row"
 					value={s.autoLoad}
 					onValueChange={(autoLoad: boolean) => {
 						const next = { ...s, autoLoad }

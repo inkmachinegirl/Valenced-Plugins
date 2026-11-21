@@ -2,14 +2,17 @@ import { lookupModules } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
 
 /**
- * Loading past hidden stretches: when the oldest loaded messages are (nearly) all ones that
- * aren't shown (ignored, blocked or hidden by another plugin), the next older page is loaded the
- * way Discord's own "Load more messages" does (MessageActionCreators.fetchMessages with `before`
- * the oldest loaded message), and again after that, until something visible turns up.
+ * Loading past hidden stretches, ahead of time. Hidden messages (ignored, blocked or hidden by
+ * another plugin) add no rows, so a page of them hardly moves the list and you reach "Load more
+ * messages" with little to read. So a cushion of shown messages is kept loaded above you: while
+ * fewer than BUFFER of the oldest WINDOW loaded messages are shown, the next older page is loaded
+ * the way Discord's own "Load more messages" does (MessageActionCreators.fetchMessages with
+ * `before` the oldest loaded message). Discord's own load-on-scroll then takes over before the
+ * button shows. A chat where nearly everything is shown never triggers it.
  */
 
-const WINDOW = 50
-const MIN_VISIBLE = 2
+const WINDOW = 100
+const BUFFER = 25
 const MAX_IN_A_ROW = 20
 const PAGE = 50
 
@@ -66,7 +69,7 @@ export function maybeLoadMore(props: any, stream: unknown[]) {
 	const oldest = oldestMessages(messages)
 	if (!oldest.length) return
 	const seen = oldest.filter(m => visible.has(String(m?.id))).length
-	if (seen >= MIN_VISIBLE) {
+	if (seen >= BUFFER) {
 		streak.delete(channelId)
 		return
 	}
