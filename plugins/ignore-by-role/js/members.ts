@@ -170,3 +170,48 @@ export async function applyAll(
 	}
 	return { done, failed, lastError }
 }
+
+export interface GuildHit {
+	id: string
+	name: string
+}
+
+/** Up to [limit] servers for what was typed: an ID matches exactly, else names, starts-with first. */
+export function matchGuilds(query: string, limit = 8): GuildHit[] {
+	const all = Object.values<any>(S().GuildStore?.getGuilds?.() ?? {}).map(
+		g => ({
+			id: String(g.id),
+			name: String(g.name ?? g.id),
+		}),
+	)
+	return rank(all, query, limit)
+}
+
+/** Up to [limit] roles for what was typed: an ID or <@&id> matches exactly, else names. */
+export function matchRoles(guildId: string, query: string, limit = 8): Role[] {
+	return rank(
+		rolesOf(guildId),
+		query.trim().replace(/^<@&([^>]+)>$/, '$1'),
+		limit,
+	)
+}
+
+function rank<T extends { id: string; name: string }>(
+	all: T[],
+	query: string,
+	limit: number,
+): T[] {
+	const q = query.trim().toLowerCase()
+	if (!q) return []
+	const byId = all.find(x => x.id === q)
+	if (byId) return [byId]
+	const starts: T[] = []
+	const has: T[] = []
+	for (const x of all) {
+		const n = x.name.toLowerCase()
+		if (n.startsWith(q)) starts.push(x)
+		else if (n.includes(q)) has.push(x)
+	}
+	const byName = (a: T, b: T) => a.name.localeCompare(b.name)
+	return [...starts.sort(byName), ...has.sort(byName)].slice(0, limit)
+}

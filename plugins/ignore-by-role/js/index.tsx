@@ -8,16 +8,23 @@ import { RootNavigationRef } from '@valenced/discord/modules/main_tabs_v2'
 import { instead } from '@valenced/patcher'
 import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
 import { useEffect, useMemo, useState } from 'react'
-import { FlatList, Image, View } from 'react-native'
+import {
+	FlatList,
+	Image,
+	TextInput as RNTextInput,
+	ScrollView,
+	View,
+} from 'react-native'
 import { findModule } from './find'
 import {
 	applyAll,
 	fetchCounts,
 	loadRole,
+	matchGuilds,
+	matchRoles,
 	type Person,
 	peopleWith,
 	type Role,
-	rolesOf,
 } from './members'
 import { subscribeRelationships } from './relationships'
 
@@ -73,62 +80,125 @@ function Avatar({ url }: { url?: string }) {
 	)
 }
 
-function GuildPicker({ onPick }: { onPick: (id: string) => void }) {
-	const { TableRowGroup, TableRow } = Design as any
-	const guilds = Object.values<any>(S().GuildStore?.getGuilds?.() ?? {}).sort(
-		(a, b) => String(a.name).localeCompare(String(b.name)),
-	)
+/** A search field: Discord's TextInput when there, React Native's otherwise. */
+function Search({
+	value,
+	onChange,
+	placeholder,
+}: {
+	value: string
+	onChange: (v: string) => void
+	placeholder: string
+}) {
+	const { TextInput } = Design as any
+	if (TextInput)
+		return (
+			<TextInput
+				value={value}
+				onChange={onChange}
+				placeholder={placeholder}
+				isClearable
+				autoCapitalize="none"
+				autoCorrect={false}
+			/>
+		)
 	return (
-		<TableRowGroup title="Pick a server">
-			{guilds.map(g => (
-				<TableRow
-					key={g.id}
-					label={g.name}
-					arrow
-					onPress={() => onPick(g.id)}
-				/>
-			))}
-		</TableRowGroup>
+		<RNTextInput
+			value={value}
+			onChangeText={onChange}
+			placeholder={placeholder}
+			autoCapitalize="none"
+			autoCorrect={false}
+			style={{
+				padding: 12,
+				borderRadius: 10,
+				backgroundColor: 'rgba(127,127,127,0.15)',
+				color: 'white',
+			}}
+		/>
 	)
 }
 
-function RolePicker({
+function GuildSearch({ onPick }: { onPick: (id: string) => void }) {
+	const { TableRowGroup, TableRow, Text } = Design as any
+	const [q, setQ] = useState('')
+	const hits = matchGuilds(q)
+	return (
+		<View style={{ gap: 10 }}>
+			<Search value={q} onChange={setQ} placeholder="Server name or ID" />
+			{hits.length ? (
+				<TableRowGroup>
+					{hits.map(g => (
+						<TableRow
+							key={g.id}
+							label={g.name}
+							arrow
+							onPress={() => onPick(g.id)}
+						/>
+					))}
+				</TableRowGroup>
+			) : q.trim() ? (
+				<Text variant="text-sm/medium" color="text-muted">
+					No server matches that.
+				</Text>
+			) : null}
+		</View>
+	)
+}
+
+function RoleSearch({
 	guildId,
 	onPick,
 }: {
 	guildId: string
 	onPick: (r: Role) => void
 }) {
-	const { TableRowGroup, TableRow } = Design as any
+	const { TableRowGroup, TableRow, Text } = Design as any
 	useStoreTick([
 		S().GuildRoleMemberCountStore,
 		S().GuildRoleStore,
 		S().GuildStore,
 	])
 	useEffect(() => fetchCounts(guildId), [guildId])
-	const roles = rolesOf(guildId)
+	const [q, setQ] = useState('')
+	const hits = matchRoles(guildId, q)
 	return (
-		<TableRowGroup title="Pick a role">
-			{roles.map(r => (
-				<TableRow
-					key={r.id}
-					label={r.name}
-					subLabel={r.count !== undefined ? `${r.count} members` : undefined}
-					icon={
-						<View
-							style={{
-								width: 14,
-								height: 14,
-								borderRadius: 7,
-								backgroundColor: r.color ?? '#99aab5',
-							}}
+		<View style={{ gap: 10 }}>
+			<Search
+				value={q}
+				onChange={setQ}
+				placeholder="Role name, ID or @mention"
+			/>
+			{hits.length ? (
+				<TableRowGroup>
+					{hits.map(r => (
+						<TableRow
+							key={r.id}
+							label={r.name}
+							subLabel={
+								r.count !== undefined ? `${r.count} members` : undefined
+							}
+							icon={
+								<View
+									style={{
+										width: 14,
+										height: 14,
+										borderRadius: 7,
+										backgroundColor: r.color ?? '#99aab5',
+									}}
+								/>
+							}
+							arrow
+							onPress={() => onPick(r)}
 						/>
-					}
-					arrow
-					onPress={() => onPick(r)}
-				/>
-			))}
-		</TableRowGroup>
+					))}
+				</TableRowGroup>
+			) : q.trim() ? (
+				<Text variant="text-sm/medium" color="text-muted">
+					No role in this server matches that.
+				</Text>
+			) : null}
+		</View>
 	)
 }
 
@@ -329,52 +399,62 @@ function Members({ guildId, role }: { guildId: string; role: Role }) {
 }
 
 function Page() {
-	const { Button } = Design as any
+	const { Text, Button } = Design as any
 	const [guildId, setGuild] = useState<string | undefined>(() => {
 		const p = preset
 		preset = undefined
 		return p
 	})
 	const [role, setRole] = useState<Role>()
-	const back = role
-		? () => setRole(undefined)
-		: guildId
-			? () => setGuild(undefined)
-			: undefined
-	return (
-		<View style={{ flex: 1 }}>
-			{back ? (
+	const guildName = guildId
+		? S().GuildStore?.getGuild?.(guildId)?.name
+		: undefined
+	if (guildId && role)
+		return (
+			<View style={{ flex: 1 }}>
 				<View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
 					<Button
-						text={role ? '← Roles' : '← Servers'}
+						text="← Change role"
 						size="sm"
 						variant="secondary"
-						onPress={back}
+						onPress={() => setRole(undefined)}
 					/>
 				</View>
-			) : null}
-			{!guildId ? (
-				<FlatList
-					data={[0]}
-					renderItem={() => (
-						<View style={{ padding: 16 }}>
-							<GuildPicker onPick={setGuild} />
-						</View>
-					)}
-				/>
-			) : !role ? (
-				<FlatList
-					data={[0]}
-					renderItem={() => (
-						<View style={{ padding: 16 }}>
-							<RolePicker guildId={guildId} onPick={setRole} />
-						</View>
-					)}
-				/>
-			) : (
 				<Members guildId={guildId} role={role} />
+			</View>
+		)
+	return (
+		<ScrollView
+			contentContainerStyle={{ padding: 16, gap: 16 }}
+			keyboardShouldPersistTaps="handled"
+		>
+			<Text variant="text-md/normal">
+				Type a server, then a role (its name, ID or @mention). You'll get the
+				people with that role to tick and ignore.
+			</Text>
+			{guildId ? (
+				<View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+					<Text
+						variant="text-md/semibold"
+						style={{ flex: 1 }}
+						numberOfLines={1}
+					>
+						{guildName ?? guildId}
+					</Text>
+					<Button
+						text="Change"
+						size="sm"
+						variant="secondary"
+						onPress={() => setGuild(undefined)}
+					/>
+				</View>
+			) : (
+				<GuildSearch onPick={setGuild} />
 			)}
-		</View>
+			{guildId ? (
+				<RoleSearch key={guildId} guildId={guildId} onPick={setRole} />
+			) : null}
+		</ScrollView>
 	)
 }
 
