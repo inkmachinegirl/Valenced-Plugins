@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.compact-status",
+	"name": "Compact Status",
+	"description": "A smaller Change Online Status sheet: your avatar and the four statuses as one row of big icons (tap one), with the custom status under them.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "ReactionIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
