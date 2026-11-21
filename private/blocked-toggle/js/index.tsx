@@ -1,5 +1,8 @@
 import { getAssetIdByName } from '@valenced/assets'
-import { ToastActionCreators } from '@valenced/discord/actions'
+import {
+	ActionSheetActionCreators,
+	ToastActionCreators,
+} from '@valenced/discord/actions'
 import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
 import * as discordFinders from '@valenced/discord/utils/modules/finders'
@@ -8,7 +11,7 @@ import { lookupModule } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
 import { instead } from '@valenced/patcher'
 import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
-import { isValidElement, useEffect, useState } from 'react'
+import { isValidElement, useEffect, useReducer, useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
 import { findModule } from './find'
 
@@ -32,20 +35,152 @@ interface Settings {
 	channels: string[]
 	/** Ignored people too (not only blocked). */
 	ignored: boolean
+	/** Servers where embeds (link previews) are hidden. */
+	embedGuilds: string[]
 }
-const DEFAULTS: Settings = { channels: [], ignored: true }
+const DEFAULTS: Settings = { channels: [], ignored: true, embedGuilds: [] }
 let storage: any
 let shown = new Set<string>()
 let ignoredToo = true
+let embedGuilds = new Set<string>()
 const settings = (): Settings => ({ ...DEFAULTS, ...(storage?.cache ?? {}) })
 function load() {
 	const s = settings()
 	shown = new Set(s.channels)
 	ignoredToo = s.ignored
+	embedGuilds = new Set(s.embedGuilds)
+}
+
+const guildOf = (channelId: string | undefined): string | undefined => {
+	if (!channelId) return undefined
+	try {
+		return (
+			(Stores as any).ChannelStore?.getChannel?.(channelId)?.guild_id ??
+			undefined
+		)
+	} catch {
+		return undefined
+	}
+}
+
+/** Redraws whatever reads the embeds setting (see patchEmbeds). */
+const embedListeners = new Set<() => void>()
+function toggleEmbeds(guildId: string) {
+	const on = !embedGuilds.has(guildId)
+	if (on) embedGuilds.add(guildId)
+	else embedGuilds.delete(guildId)
+	storage?.set?.({ ...settings(), embedGuilds: [...embedGuilds] }, true)
+	for (const l of embedListeners) l()
+	;(ToastActionCreators as any).open('blocked-toggle', {
+		text: on
+			? 'Embeds hidden in this server'
+			: 'Embeds shown in this server again',
+	})
+}
+
+/**
+ * Embeds per server: the chat reads Discord's "Show embeds" setting through
+ * RenderEmbeds.useSetting() (Messages.tsx passes it to the renderer as renderEmbeds). Discord's
+ * value is still read, and in a server you picked the answer is "off". A small hook keeps the chat
+ * redrawn when you flip the switch.
+ */
+function patchEmbeds(mod: any): (() => void) | undefined {
+	const setting = mod?.RenderEmbeds ?? mod?.default?.RenderEmbeds
+	if (typeof setting?.useSetting !== 'function') return undefined
+	status.embeds = true
+	return instead(
+		setting,
+		'useSetting',
+		function (this: unknown, args: any[], orig: any) {
+			const value = Reflect.apply(orig, this, args)
+			// Always the same hooks in the same order, whatever the answer.
+			const [, redraw] = useReducer((n: number) => n + 1, 0)
+			useEffect(() => {
+				embedListeners.add(redraw)
+				return () => {
+					embedListeners.delete(redraw)
+				}
+			}, [])
+			if (!embedGuilds.size || value === false) return value
+			const guildId = guildOf(
+				(Stores as any).SelectedChannelStore?.getChannelId?.(),
+			)
+			return guildId && embedGuilds.has(guildId) ? false : value
+		},
+	)
+}
+
+/** The options sheet the eye opens. */
+function OptionsSheet({ channelId }: { channelId: string }) {
+	const {
+		ActionSheet,
+		BottomSheetTitleHeader,
+		ActionSheetSwitchRow,
+		TableRowGroup,
+		TableSwitchRow,
+	} = Design as any
+	const [, redraw] = useReducer((n: number) => n + 1, 0)
+	useEffect(() => {
+		listeners.add(redraw)
+		embedListeners.add(redraw)
+		return () => {
+			listeners.delete(redraw)
+			embedListeners.delete(redraw)
+		}
+	}, [])
+	const channel = (Stores as any).ChannelStore?.getChannel?.(channelId)
+	const guildId = guildOf(channelId)
+	const Row = ActionSheetSwitchRow ?? TableSwitchRow
+	const rows = [
+		<Row
+			key="blocked"
+			label="Show blocked & ignored messages"
+			subLabel="In this channel"
+			value={shown.has(channelId)}
+			onValueChange={() => toggle(channelId)}
+		/>,
+		guildId ? (
+			<Row
+				key="embeds"
+				label="Hide embeds"
+				subLabel="Link previews, everywhere in this server"
+				value={embedGuilds.has(guildId)}
+				onValueChange={() => toggleEmbeds(guildId)}
+			/>
+		) : null,
+	]
+	return (
+		<ActionSheet>
+			{BottomSheetTitleHeader ? (
+				<BottomSheetTitleHeader
+					title={channel?.name ? `#${channel.name}` : 'This chat'}
+				/>
+			) : null}
+			{TableRowGroup ? <TableRowGroup>{rows}</TableRowGroup> : rows}
+		</ActionSheet>
+	)
+}
+
+function openOptions(channelId: string) {
+	try {
+		;(ActionSheetActionCreators as any).openLazy(
+			Promise.resolve({ default: OptionsSheet }),
+			'blocked-toggle-options',
+			{ channelId },
+		)
+	} catch {
+		toggle(channelId)
+	}
 }
 
 /** For Settings → Status. */
-const status = { hooked: false, calls: 0, drawn: 0, icon: 'Not looked up yet' }
+const status = {
+	hooked: false,
+	calls: 0,
+	drawn: 0,
+	icon: 'Not looked up yet',
+	embeds: false,
+}
 
 const listeners = new Set<() => void>()
 function toggle(channelId: string) {
@@ -176,10 +311,8 @@ function EyeButton({ channelId }: { channelId: string }) {
 		return (
 			<Pressable
 				accessibilityRole="button"
-				accessibilityLabel={
-					on ? 'Hide blocked messages' : 'Show blocked messages'
-				}
-				onPress={() => toggle(channelId)}
+				accessibilityLabel="Blocked messages and embeds"
+				onPress={() => openOptions(channelId)}
 				hitSlop={8}
 				style={{ padding: 8 }}
 			>
@@ -191,12 +324,8 @@ function EyeButton({ channelId }: { channelId: string }) {
 			icon={src}
 			variant={variant ?? 'tertiary'}
 			size={size ?? 'sm'}
-			accessibilityLabel={
-				on
-					? 'Hide blocked and ignored messages'
-					: 'Show blocked and ignored messages'
-			}
-			onPress={() => toggle(channelId)}
+			accessibilityLabel="Blocked messages and embeds"
+			onPress={() => openOptions(channelId)}
 		/>
 	)
 }
@@ -245,6 +374,10 @@ function SettingsPage() {
 					}
 				/>
 				<TableRow label="Eye icon" subLabel={status.icon} />
+				<TableRow
+					label="Embeds setting"
+					subLabel={status.embeds ? 'Hooked' : 'Not found yet (open a chat)'}
+				/>
 			</TableRowGroup>
 		</ScrollView>
 	)
@@ -315,9 +448,19 @@ export default plugin({
 					),
 				)
 			}),
+			findModule(
+				'modules/user_settings/UserSettings.tsx',
+				['RenderEmbeds'],
+				(mod: any) => {
+					const undo = patchEmbeds(mod)
+					if (undo) cleanup(undo)
+				},
+			),
 			() => {
 				storage = undefined
 				shown = new Set()
+				embedGuilds = new Set()
+				for (const l of embedListeners) l()
 				try {
 					;(Stores as any).RelationshipStore?.emitChange?.()
 				} catch {}

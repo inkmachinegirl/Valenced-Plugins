@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "dev.ketsuyumi.blocked-toggle",
 	"name": "Blocked Messages Toggle",
-	"description": "An eye button on the member list / channel details top bar (next to search, bell and settings) that shows or hides messages from people you blocked or ignored, per channel.",
+	"description": "An eye button on the member list / channel details top bar (next to search, bell and settings) with two switches: show messages from people you blocked or ignored in that channel, and hide embeds (link previews) in that whole server.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "EyeIcon",
-	"version": "1.0.2",
+	"version": "1.1.0",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
