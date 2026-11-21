@@ -1,0 +1,24 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.no-suggestions-plus",
+	"name": "No Suggestions+",
+	"description": "Removes annoying channel suggestions that reappear even if you already removed them. A lighter private fork (GPL-3.0) that stops watching every element once it has found the section.",
+	"author": "MarkLong0467 (https://github.com/MarkLong0467 \"GitHub\")",
+	"contributors": [
+		"PalmDevs <629368283354628116> (https://github.com/PalmDevs \"Original author\") (https://github.com/PalmDevs/revenge-plugins \"Source\")",
+		"Satou (https://github.com/inkmachinegirl \"GitHub\")"
+	],
+	"icon": "CircleXIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

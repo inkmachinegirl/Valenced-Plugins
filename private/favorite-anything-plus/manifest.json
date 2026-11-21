@@ -1,0 +1,21 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.favorite-anything-plus",
+	"name": "Favorite Anything+",
+	"description": "Favorite any image or video, not just GIFs, and keep saved favorites loading. A faster private fork of TheUnrealZaka's Favorite Anything (MIT).",
+	"icon": "StarIcon",
+	"author": "TheUnrealZaka <1268335382118924406> (https://www.theunrealzaka.me \"Website\")",
+	"contributors": [
+		"nin0dev",
+		"davri",
+		"Satou (https://github.com/inkmachinegirl \"GitHub\")"
+	],
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": { "version": ">=1 <2" },
+		"discord": { "version": "*" }
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
