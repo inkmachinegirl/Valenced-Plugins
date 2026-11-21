@@ -319,12 +319,12 @@
       }
     },
     "dev.ketsuyumi.close-dms": {
-      "name": "Close DMs",
+      "name": "DM Cleanup",
       "description": "A smaller Add Friends button and a select button next to + on the Messages tab: tick DMs and close them all at once (they leave your list; the messages stay).",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "CheckmarkLargeIcon",
       "channels": {
-        "latest": "1.0.1"
+        "latest": "1.0.2"
       },
       "versions": {
         "1.0.0": {
@@ -344,6 +344,19 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.close-dms@1.0.1.zip",
           "sha256": "28a7b76c5e5b29d64ca93e4ad31b83f6e24d9b573e82291a4e4c455532c96432",
           "size": 3436,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.2": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.close-dms@1.0.2.zip",
+          "sha256": "703ae7f5a35a0ae3323bb5327081581f642899e83c31c93ce83d871985b438f7",
+          "size": 3440,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
