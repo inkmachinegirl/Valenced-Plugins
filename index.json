@@ -1017,6 +1017,30 @@
         }
       }
     },
+    "dev.ketsuyumi.hide-empty-days": {
+      "name": "Hide Empty Days",
+      "description": "Removes chat date lines for days with nothing to show, like the long runs of dates left behind when everyone who talked that day is blocked, ignored or hidden by another plugin.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "CalendarIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-empty-days@1.0.0.zip",
+          "sha256": "2e754e99d516ef5e3a1c9c88e3c79f5303f0d65d4847ebefa18d9a56e5652ca3",
+          "size": 2660,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.hide-server-banners": {
       "name": "Hide Server Banners",
       "description": "Hides server banners at the top of the channel list, so every server uses the compact header.",
