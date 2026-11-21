@@ -1197,6 +1197,30 @@
         }
       }
     },
+    "dev.ketsuyumi.ignore-by-role": {
+      "name": "Ignore by Role",
+      "description": "Long-press a server and choose Ignore by role: pick a role, see the people who have it, tick who to ignore (or unignore) and confirm. Like Block by ID, per server and role.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "UserMinusIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.ignore-by-role@1.0.0.zip",
+          "sha256": "fc0d74be78cf355beb0161d4fc8140f96c8f84f227995e59fec49ff644bb99fe",
+          "size": 4585,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.meow-picker": {
       "name": "Meow Picker",
       "description": "A cat button by the emoji button in chat. It opens a picker like the emoji one, full of meows, mrrps, purrs, hisses, cat actions and cat kaomoji. Tap one to add it to your message, long-press to send it.",
