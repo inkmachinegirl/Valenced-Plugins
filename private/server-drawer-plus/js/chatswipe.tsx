@@ -26,9 +26,12 @@ import React from 'react'
 import * as Native from 'react-native'
 import type * as t from './types'
 
-/** Upward, long enough to mean it. */
-export const isSwipeUp = (dx: number, dy: number) =>
-	dy < -50 && Math.abs(dy) > Math.abs(dx) * 1.5
+/** Upward and mostly vertical: a short drag is enough, or a quick flick. */
+export const isSwipeUp = (dx: number, dy: number, vy = 0) =>
+	(dy < -32 || (dy < -12 && vy < -450)) && Math.abs(dy) > Math.abs(dx) * 0.8
+
+/** For the settings page: whether swipes reach the plugin. */
+export const swipeStatus = { touches: 0, swipes: 0, opened: 0 }
 
 // The overlay: one shared open flag, and the drawer surface component set by index.tsx.
 const listeners = new Set<() => void>()
@@ -57,14 +60,40 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 	const g = gestureModule()
 	const pan = React.useMemo(() => {
 		if (!g?.Gesture?.Pan) return undefined
-		return g.Gesture.Pan()
-			.activeOffsetY(-24)
-			.failOffsetX([-24, 24])
-			.runOnJS(true)
-			.onEnd((e: any) => {
-				if (isSwipeUp(e?.translationX ?? 0, e?.translationY ?? 0))
-					showOverlay(true)
-			})
+		let fired = false
+		const fire = (e: any) => {
+			if (
+				fired ||
+				!isSwipeUp(
+					e?.translationX ?? 0,
+					e?.translationY ?? 0,
+					e?.velocityY ?? 0,
+				)
+			)
+				return
+			fired = true
+			swipeStatus.opened++
+			showOverlay(true)
+		}
+		return (
+			g.Gesture.Pan()
+				// Takes over after a small upward move; sideways drift is allowed well before it gives up.
+				.activeOffsetY(-10)
+				.failOffsetX([-70, 70])
+				// The area reaches below the chat bar (down to the screen's bottom) and a bit above it.
+				.hitSlop({ top: 36, bottom: 120 })
+				.runOnJS(true)
+				.onBegin(() => {
+					fired = false
+					swipeStatus.touches++
+				})
+				.onStart(() => {
+					swipeStatus.swipes++
+				})
+				// Opens as soon as the swipe is clear, not only on lifting the finger.
+				.onUpdate(fire)
+				.onEnd(fire)
+		)
 	}, [g])
 	if (!g?.GestureDetector || !pan) return <>{children}</>
 	const Detector = g.GestureDetector

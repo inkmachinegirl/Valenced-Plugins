@@ -4,6 +4,7 @@ import { ScrollView } from 'react-native'
 import type { PluginSettingsComponent } from '@valenced/plugins/types'
 import type { ComponentProps } from 'react'
 import type { ServerDrawerPreferences } from './types'
+import { swipeStatus } from './chatswipe'
 
 export const DefaultSettings: ServerDrawerPreferences = {
 	dmOrder: [],
@@ -76,6 +77,12 @@ export default function Settings({
 						subLabel="Pull the collapsed dock down until it is flat, then release to mark all servers and DMs as read."
 						value={pullToMarkRead}
 						onValueChange={value => jsonStorage.set({ pullToMarkRead: value })}
+					/>
+				</Design.TableRowGroup>
+				<Design.TableRowGroup title="Chat bar swipe (Server Drawer+)">
+					<Design.TableRow
+						label="Swipe up on the chat bar to open the drawer"
+						subLabel={`Since Discord started: ${swipeStatus.touches} touches on the chat bar, ${swipeStatus.swipes} swipes up, opened ${swipeStatus.opened} times`}
 					/>
 				</Design.TableRowGroup>
 			</Page>
