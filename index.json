@@ -973,13 +973,26 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "FriendsIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.0.1"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.friends-export@1.0.0.zip",
           "sha256": "a3f1b8a6f8cec6813c2dc4b2bc48de20b1252b87264b04882fb55150bf4ba162",
           "size": 4953,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.1": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.friends-export@1.0.1.zip",
+          "sha256": "cab012a7be53059be975eeec2185b56f07a04ccfdd3edf22e3fd0aac49360607",
+          "size": 5218,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
