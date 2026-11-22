@@ -251,34 +251,67 @@ export function knownGames(): GameInfo[] {
 	const found = new Map<string, GameInfo>()
 	const add = (id: unknown, name: unknown, source: string, icon?: unknown) => {
 		if (!id || !name || found.has(String(id))) return
-		found.set(String(id), { id: String(id), name: String(name), icon: typeof icon === 'string' ? icon : null, aliases: [], source })
+		found.set(String(id), {
+			id: String(id),
+			name: String(name),
+			icon: typeof icon === 'string' ? icon : null,
+			aliases: [],
+			source,
+		})
 	}
 	try {
 		const me = myId()
 		const ids = new Set<string>(me ? [me] : [])
-		const rel = S.RelationshipStore?.getMutableRelationships?.() ?? S.RelationshipStore?.getRelationships?.() ?? {}
-		for (const [id, v] of rel instanceof Map ? rel : Object.entries(rel)) if ((typeof v === 'number' ? v : (v as any)?.type) === 1) ids.add(String(id))
+		const rel =
+			S.RelationshipStore?.getMutableRelationships?.() ??
+			S.RelationshipStore?.getRelationships?.() ??
+			{}
+		for (const [id, v] of rel instanceof Map ? rel : Object.entries(rel))
+			if ((typeof v === 'number' ? v : (v as any)?.type) === 1)
+				ids.add(String(id))
 		for (const id of ids)
 			for (const a of S.PresenceStore?.getActivities?.(id) ?? [])
-				if (a?.application_id && (a.type === 0 || a.type === undefined)) add(a.application_id, a.name, id === me ? 'you played' : 'friends play')
+				if (a?.application_id && (a.type === 0 || a.type === undefined))
+					add(
+						a.application_id,
+						a.name,
+						id === me ? 'you played' : 'friends play',
+					)
 	} catch {}
 	try {
-		const apps = S.ApplicationStore?.getApplications?.() ?? S.ApplicationStore?.applications
-		const list: any[] = apps instanceof Map ? [...apps.values()] : Array.isArray(apps) ? apps : Object.values(apps ?? {})
-		for (const app of list) if (app?.id && app?.name) add(app.id, app.name, 'known to Discord', app.icon)
+		const apps =
+			S.ApplicationStore?.getApplications?.() ??
+			S.ApplicationStore?.applications
+		const list: any[] =
+			apps instanceof Map
+				? [...apps.values()]
+				: Array.isArray(apps)
+					? apps
+					: Object.values(apps ?? {})
+		for (const app of list)
+			if (app?.id && app?.name)
+				add(app.id, app.name, 'known to Discord', app.icon)
 	} catch {}
 	for (const g of found.values()) if (!info.has(g.id)) info.set(g.id, g)
 	return [...found.values()]
 }
 
 /** Words of a name or query, lower case, without punctuation (so "Call of Duty: Mobile" → call, of, duty, mobile). */
-const words = (text: string) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+const words = (text: string) =>
+	text
+		.toLowerCase()
+		.split(/[^\p{L}\p{N}]+/u)
+		.filter(Boolean)
 
 /**
  * Best matches for [query]: exact, then starts-with, then contains, then by words (most of the
  * query's words in the name, in any order), over names and aliases. Shorter names win ties.
  */
-export function searchGames(list: GameInfo[], query: string, limit = 30): GameInfo[] {
+export function searchGames(
+	list: GameInfo[],
+	query: string,
+	limit = 30,
+): GameInfo[] {
 	const q = query.trim().toLowerCase()
 	if (!q) return []
 	const qWords = words(q)
@@ -292,8 +325,11 @@ export function searchGames(list: GameInfo[], query: string, limit = 30): GameIn
 			else if (n.includes(q)) score = Math.max(score, 1)
 			else if (qWords.length > 1) {
 				const nameWords = words(n)
-				const hits = qWords.filter(w => nameWords.some(nw => nw.startsWith(w))).length
-				if (hits >= Math.ceil(qWords.length * 0.6)) score = Math.max(score, 0.5 * (hits / qWords.length))
+				const hits = qWords.filter(w =>
+					nameWords.some(nw => nw.startsWith(w)),
+				).length
+				if (hits >= Math.ceil(qWords.length * 0.6))
+					score = Math.max(score, 0.5 * (hits / qWords.length))
 			}
 		}
 		if (score) scored.push([score, game])

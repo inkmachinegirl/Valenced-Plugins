@@ -30,7 +30,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Meow Picker** `1.3.0`: a cat button with a picker full of meows and cat kaomoji
 • **Never Talked** `1.0.1`: mark people in the member list who never talked in that server
 • **No Blackout** `1.0.2`: stop the screen going black in calls when the proximity sensor is covered
-• **Profile Widgets** `1.2.0`: edit your game widgets right on your profile, with comments and tags
+• **Profile Widgets** `1.2.1`: edit your game widgets right on your profile, with comments and tags
 • **Quick Access** `1.4.4`: reload, Friends, Plugins and Performance Monitor buttons on the YouBar, each with its own switch
 • **Quick Folders** `1.2.0`: long-press a server to move it to a folder, no dragging
 • **Shop Browser** `1.12.0`: the Shop like on desktop, with Browse, sorting and filters

@@ -1,5 +1,6 @@
 import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
 import { instead } from '@valenced/patcher'
+import { patchBoard } from './board'
 import { ToastActionCreators } from '@valenced/discord/actions'
 import { Design } from '@valenced/discord/design'
 import { useEffect, useMemo, useState } from 'react'
@@ -357,7 +358,11 @@ function SearchView({
 							<TableRow
 								key={game.id}
 								label={game.name}
-								subLabel={game.source ? `Not in Discord's PC list · ${game.source}` : undefined}
+								subLabel={
+									game.source
+										? `Not in Discord's PC list · ${game.source}`
+										: undefined
+								}
 								icon={<GameIcon game={game} />}
 								arrow
 								onPress={() => onPick(game)}
@@ -366,14 +371,16 @@ function SearchView({
 					</TableRowGroup>
 				) : query.trim() && list && !pasted ? (
 					<Text variant="text-sm/medium" color="text-muted">
-						No games match "{query.trim()}". Search covers Discord's PC game list plus games you and your
-						friends are playing right now, so a mobile-only game shows up once someone is playing it, or paste
-						its game ID.
+						No games match "{query.trim()}". Search covers Discord's PC game
+						list plus games you and your friends are playing right now, so a
+						mobile-only game shows up once someone is playing it, or paste its
+						game ID.
 					</Text>
 				) : !query.trim() ? (
 					<Text variant="text-sm/medium" color="text-muted">
-						{list ? 'No suggested games. ' : ''}Type a game's name. Mobile games are found when you or a friend
-						is playing them with Discord activity on; you can also paste a game ID.
+						{list ? 'No suggested games. ' : ''}Type a game's name. Mobile games
+						are found when you or a friend is playing them with Discord activity
+						on; you can also paste a game ID.
 					</Text>
 				) : null}
 			</Stack>
@@ -510,11 +517,14 @@ function EditView({
  * profile's Board tab and in Edit Profile) behind the "2026-10-mobile-widget-editing" experiment.
  * Its only switch is this hook; the original still runs (it calls React hooks itself, so skipping
  * it would change the hook count of screens already open) and its answer is replaced with true.
+ * That editor exists from Discord 354.1; on older builds board.tsx adds an Edit widgets button.
  */
-const EXPERIMENT = 'modules/user_profile/experiments/MobileWidgetEditingExperiment.tsx'
+const EXPERIMENT =
+	'modules/user_profile/experiments/MobileWidgetEditingExperiment.tsx'
 
 export default plugin({
 	start({ cleanup }) {
+		patchBoard(cleanup, SettingsPage)
 		cleanup(
 			getModuleWithImportedPath<any>(EXPERIMENT, mod => {
 				if (typeof mod?.useIsMobileWidgetEditingEnabled !== 'function') return
