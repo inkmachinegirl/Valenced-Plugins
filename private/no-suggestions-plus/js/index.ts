@@ -17,6 +17,7 @@
  * which needs no module. The module is patched too, if it is found, as a second way.
  */
 
+import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
 import { getModules } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
 import { installJsxFinder } from './jsxFind'
@@ -131,40 +132,48 @@ export default plugin({
 		})
 		if (!state.jsx) diag.log('jsx', 'The JSX runtime was not found', 'warn')
 
-		// The second way: patch the module that has the section, if Discord has loaded it.
+		// The second way: patch the module that has the section.
 		const patched = new Set<object>()
-		cleanup(
-			getModules(withProps('SuggestedCategory'), (exports: unknown) => {
-				const module = exports as { default?: unknown } | null
-				const datasource = [exports, module?.default].find(
-					candidate =>
-						!!candidate &&
-						typeof (candidate as Partial<Datasource>).SuggestedCategory ===
-							'function',
-				) as Datasource | undefined
-				if (!datasource || patched.has(datasource)) return
-				patched.add(datasource)
+		const patchDatasource = (exports: unknown) => {
+			const module = exports as { default?: unknown } | null
+			const datasource = [exports, module?.default].find(
+				candidate =>
+					!!candidate &&
+					typeof (candidate as Partial<Datasource>).SuggestedCategory ===
+						'function',
+			) as Datasource | undefined
+			if (!datasource || patched.has(datasource)) return
+			patched.add(datasource)
 
-				cleanup(
-					diag.apply('SuggestedCategory (module)', () => {
-						const unpatch = valenced.patcher.instead(
-							datasource,
-							'SuggestedCategory',
-							((args: [SuggestedProps], original: SuggestedCategory) => {
-								if (dropJsx) {
-									dropJsx()
-									dropJsx = undefined
-									state.jsx = false
-									diag.log('jsx', 'Module patch works: JSX hook removed')
-								}
-								return suggested(args[0], original)
-							}) as never,
-						)
-						state.patched++
-						return unpatch
-					}),
-				)
-			}),
-		)
+			cleanup(
+				diag.apply('SuggestedCategory (module)', () => {
+					const unpatch = valenced.patcher.instead(
+						datasource,
+						'SuggestedCategory',
+						((args: [SuggestedProps], original: SuggestedCategory) => {
+							if (dropJsx) {
+								dropJsx()
+								dropJsx = undefined
+								state.jsx = false
+								diag.log('jsx', 'Module patch works: JSX hook removed')
+							}
+							return suggested(args[0], original)
+						}) as never,
+					)
+					state.patched++
+					return unpatch
+				}),
+			)
+		}
+		// Fork: by path. The function lives in RedesignCategory.tsx, and items/index.tsx keeps its own
+		// copy (`export const SuggestedCategory = RedesignCategory.SuggestedCategory`), which is what
+		// the channel list reads. Patching RedesignCategory as soon as Discord loads it means index.tsx
+		// copies the patched function; index.tsx is patched as well in case it was loaded first.
+		for (const path of [
+			'modules/channel_list_v2/native/items/RedesignCategory.tsx',
+			'modules/channel_list_v2/native/items/index.tsx',
+		])
+			cleanup(getModuleWithImportedPath<any>(path, patchDatasource))
+		cleanup(getModules(withProps('SuggestedCategory'), patchDatasource))
 	},
 })
