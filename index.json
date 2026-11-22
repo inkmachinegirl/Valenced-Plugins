@@ -2303,7 +2303,7 @@
       "description": "A cute, readable NEEDY STREAMER OVERLOAD theme inspired by Ame-chan: soft plum surfaces, cherry-red accents and gold links. Comes with an optional background.",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "channels": {
-        "latest": "1.4.0"
+        "latest": "1.5.0"
       },
       "versions": {
         "1.0.0": {
@@ -2406,6 +2406,22 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.theme.ame@1.4.0.zip",
           "sha256": "5779a7e64040bd8a76b49f867e4f876aec93c94a543d4b17a9d2c04f54356fbe",
           "size": 1489952,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": ">=352.2"
+            },
+            "valenced.api.themes": {
+              "version": ">=1.0.1 <2"
+            }
+          }
+        },
+        "1.5.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.theme.ame@1.5.0.zip",
+          "sha256": "dd1bead97956703b139994541d93137bd8c6462ffa221f0815ecd79647c8de88",
+          "size": 1593979,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
