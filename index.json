@@ -1600,11 +1600,11 @@
     },
     "dev.ketsuyumi.profile-widgets": {
       "name": "Profile Widgets",
-      "description": "Edit your profile's game widgets on mobile: add, remove and reorder games in Favorite Game, Games in Rotation, Games I Like and Want to Play, with comments and tags.",
+      "description": "Edit your profile's game widgets on mobile, right on your profile: turns on Discord's own widget editor on your Board tab and in Edit Profile (add widgets, games, comments and tags). The plugin's settings page is still there as a backup editor.",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "GameControllerIcon",
       "channels": {
-        "latest": "1.1.0"
+        "latest": "1.2.0"
       },
       "versions": {
         "1.0.0": {
@@ -1624,6 +1624,19 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.profile-widgets@1.1.0.zip",
           "sha256": "3a7dbce9255d166714461fbf80a9f048f68468c690366243fdce3f19b6046e00",
           "size": 10204,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.profile-widgets@1.2.0.zip",
+          "sha256": "0eeaf1a47490516f960590bc5a21227b008868263da98eb162df56e12093b99d",
+          "size": 10385,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
