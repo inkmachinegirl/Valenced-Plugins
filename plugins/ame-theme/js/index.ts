@@ -708,6 +708,26 @@ const pixelColors = colorsOf({
 	day: { accent: '#a12b4d', accentText: '#8f2544', link: '#8f2544', mention: '#7c1f3b', tint: '#eee4ec' },
 })
 
+// Rose: the art of her in a wine dress holding a rose. True black (AMOLED) surfaces with a
+// breath of violet from her hair for cards, the dress and rose crimson for buttons, and her
+// hair's violet for links and mentions so they stand apart from the red.
+const roseColors = colorsOf({
+	greys: ['#000000', '#0a080c', '#100d13', '#17131b', '#1e1923', '#3a3240', '#6a6070', '#857b8b', '#a096a6', '#bfb6c4', '#ece8ef', '#f3f0f5', '#fbfafc', '#ffffff'],
+	hues: { red: '#ff5a6a', orange: '#f39a76', yellow: '#f0d080', green: '#7fd8b0', teal: '#86cfcf', blue: '#8aa6f0', blurple: '#a798e8', purple: '#b48ae6', pink: '#ff8fa8' },
+	surfaces: { rail: '#000000', floor: '#000000', panel: '#000000', page: '#000000', card: '#0d0a10', popup: '#130f17', input: '#09070b', control: '#1c1622', pressed: '#271f2f' },
+	text: { strong: '#f4f1f6', text: '#e6e1ea', subtle: '#bfb6c6', muted: '#958b9c', faint: '#5f5666' },
+	accent: '#b0182c',
+	accentPress: '#97142a',
+	onAccent: '#ffffff',
+	accentText: '#ff8f9c',
+	brand: '#8a1426',
+	link: '#b8a4ec',
+	mention: '#e3d8ff',
+	keyword: '#c41e34',
+	unread: '#c41e34',
+	day: { accent: '#a3162a', accentText: '#8f1325', link: '#5a3f9a', mention: '#4c3486', tint: '#efebf1' },
+})
+
 export default plugin({
 	preInit({ themes }) {
 		themes.registerGroup('ame', {
@@ -819,6 +839,22 @@ export default plugin({
 				opacity: 1,
 				blur: 0,
 				dimming: 0.78,
+			},
+		})
+		themes.registerTheme('ame', 'ame-rose', {
+			name: 'Ame-chan Rose',
+			description: 'True black (AMOLED) with rose crimson and violet, from the wine-dress art.',
+			getColors: roseColors,
+		})
+		themes.registerTheme('ame', 'ame-rose-background', {
+			name: 'Ame-chan Rose (Background)',
+			description: 'Her in the wine dress with a rose, melting into true black.',
+			getColors: roseColors,
+			background: {
+				path: 'assets/ame-rose.jpg',
+				opacity: 1,
+				blur: 0,
+				dimming: 0.75,
 			},
 		})
 		themes.registerTheme('ame', 'ame-pixel', {
