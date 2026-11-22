@@ -1141,6 +1141,30 @@
         }
       }
     },
+    "dev.ketsuyumi.hide-get-started": {
+      "name": "Hide Get Started",
+      "description": "Removes the \"Get Started\" progress bar (new member steps) from the top of every server's channel list.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "EyeSlashIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-get-started@1.0.0.zip",
+          "sha256": "3b720dd3c6394844967c75d3e2f1a52723fe0b15ea8b4f3611e62dffcf224fa4",
+          "size": 1107,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.hide-server-banners": {
       "name": "Hide Server Banners",
       "description": "Hides server banners at the top of the channel list, so every server uses the compact header.",
