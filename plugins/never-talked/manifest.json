@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.never-talked",
+	"name": "Never Talked",
+	"description": "Marks people in a server's member list who have never sent a message there (\"Never talked here\" under their name), and can hide them per server. Checks only the people you see, slowly, and remembers the answers.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "ChatXIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

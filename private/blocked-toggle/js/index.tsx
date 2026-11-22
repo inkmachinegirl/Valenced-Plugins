@@ -110,6 +110,11 @@ function patchEmbeds(mod: any): (() => void) | undefined {
 	)
 }
 
+/** Never Talked's switch, when that plugin is installed and on. */
+const neverTalked = ():
+	| { isHidden(g: string): boolean; setHidden(g: string, on: boolean): void }
+	| undefined => (globalThis as any).__neverTalked
+
 /** The options sheet the eye opens. */
 function OptionsSheet({ channelId }: { channelId: string }) {
 	const {
@@ -146,6 +151,23 @@ function OptionsSheet({ channelId }: { channelId: string }) {
 				subLabel="Link previews, everywhere in this server"
 				value={embedGuilds.has(guildId)}
 				onValueChange={() => toggleEmbeds(guildId)}
+			/>
+		) : null,
+		guildId ? (
+			<Row
+				key="never-talked"
+				label="Hide people who never talked"
+				subLabel={
+					neverTalked()
+						? 'In the member list, everywhere in this server'
+						: 'Needs the Never Talked plugin'
+				}
+				disabled={!neverTalked()}
+				value={!!neverTalked()?.isHidden(guildId)}
+				onValueChange={(on: boolean) => {
+					neverTalked()?.setHidden(guildId, on)
+					redraw()
+				}}
 			/>
 		) : null,
 	]
