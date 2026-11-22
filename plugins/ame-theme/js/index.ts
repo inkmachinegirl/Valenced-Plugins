@@ -728,6 +728,45 @@ const roseColors = colorsOf({
 	day: { accent: '#a3162a', accentText: '#8f1325', link: '#5a3f9a', mention: '#4c3486', tint: '#efebf1' },
 })
 
+// Pastel: the soft pink-and-lavender sketch. True black with a pink breath on cards, pastel pink
+// buttons and the sketch's lavender for links and mentions.
+const pastelColors = colorsOf({
+	greys: ['#000000', '#0b080b', '#110d11', '#181218', '#1f181f', '#3c323c', '#6b606c', '#867a87', '#a195a2', '#c0b5c1', '#ede8ee', '#f4f0f4', '#fcfafc', '#ffffff'],
+	hues: { red: '#ff6b8a', orange: '#f5a98a', yellow: '#f2d898', green: '#8fdcbc', teal: '#94d4dc', blue: '#a8c4f0', blurple: '#b4a8f0', purple: '#c9a8f0', pink: '#f5a6cd' },
+	surfaces: { rail: '#000000', floor: '#000000', panel: '#000000', page: '#000000', card: '#100b10', popup: '#171017', input: '#0b080b', control: '#241a24', pressed: '#2f222f' },
+	text: { strong: '#f7f2f7', text: '#ebe3ec', subtle: '#c6b9c8', muted: '#9a8c9e', faint: '#635866' },
+	accent: '#b0477c',
+	accentPress: '#9a3d6c',
+	onAccent: '#ffffff',
+	accentText: '#f5a6cd',
+	brand: '#9a3d6c',
+	link: '#c9b8f2',
+	mention: '#ece2ff',
+	keyword: '#d94f8a',
+	unread: '#d94f8a',
+	day: { accent: '#a33a6e', accentText: '#8c315e', link: '#5c47a0', mention: '#4e3c8c', tint: '#f3edf3' },
+})
+
+// Ink: the black-and-white manga art. Pure black and greys, silver buttons with black text, and a
+// cool grey for links so they still read as links. Unread badges keep a red, so their numbers
+// stay readable.
+const inkColors = colorsOf({
+	greys: ['#000000', '#0a0a0a', '#111111', '#181818', '#1f1f1f', '#3a3a3a', '#6a6a6a', '#848484', '#9e9e9e', '#bdbdbd', '#ebebeb', '#f2f2f2', '#fafafa', '#ffffff'],
+	hues: { red: '#ff5a5f', orange: '#e0a080', yellow: '#e6d29a', green: '#8fd4b4', teal: '#9ccfd4', blue: '#a9b6cc', blurple: '#b0b4d6', purple: '#c0b0d4', pink: '#e0b0c4' },
+	surfaces: { rail: '#000000', floor: '#000000', panel: '#000000', page: '#000000', card: '#0e0e0e', popup: '#151515', input: '#0a0a0a', control: '#222222', pressed: '#2e2e2e' },
+	text: { strong: '#f6f6f6', text: '#e4e4e4', subtle: '#bcbcbc', muted: '#919191', faint: '#5c5c5c' },
+	accent: '#dcdcdc',
+	accentPress: '#c4c4c4',
+	onAccent: '#000000',
+	accentText: '#ffffff',
+	brand: '#9e9e9e',
+	link: '#a9b6cc',
+	mention: '#ffffff',
+	keyword: '#8a8a8a',
+	unread: '#c42a35',
+	day: { accent: '#2b2b2b', accentText: '#1f1f1f', link: '#3c4a62', mention: '#2c384e', tint: '#ededed' },
+})
+
 export default plugin({
 	preInit({ themes }) {
 		themes.registerGroup('ame', {
@@ -871,6 +910,38 @@ export default plugin({
 				opacity: 1,
 				blur: 0,
 				dimming: 0.78,
+			},
+		})
+		themes.registerTheme('ame', 'ame-pastel', {
+			name: 'Ame-chan Pastel',
+			description: 'True black with pastel pink and lavender, from the soft sketch art.',
+			getColors: pastelColors,
+		})
+		themes.registerTheme('ame', 'ame-pastel-background', {
+			name: 'Ame-chan Pastel (Background)',
+			description: 'The pastel sketch at the bottom of the screen on true black, dimmed for readable text.',
+			getColors: pastelColors,
+			background: {
+				path: 'assets/ame-pastel.jpg',
+				opacity: 1,
+				blur: 0,
+				dimming: 0.84,
+			},
+		})
+		themes.registerTheme('ame', 'ame-ink', {
+			name: 'Ame-chan Ink',
+			description: 'Pure black and greyscale with silver buttons, from the manga art.',
+			getColors: inkColors,
+		})
+		themes.registerTheme('ame', 'ame-ink-background', {
+			name: 'Ame-chan Ink (Background)',
+			description: 'The black-and-white manga art at the bottom of the screen on true black.',
+			getColors: inkColors,
+			background: {
+				path: 'assets/ame-ink.jpg',
+				opacity: 1,
+				blur: 0,
+				dimming: 0.82,
 			},
 		})
 	},

@@ -4,7 +4,7 @@
 	"name": "Ame-chan",
 	"description": "A cute, readable NEEDY STREAMER OVERLOAD theme inspired by Ame-chan: soft plum surfaces, cherry-red accents and gold links. Comes with an optional background.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
-	"version": "1.5.1",
+	"version": "1.6.0",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
