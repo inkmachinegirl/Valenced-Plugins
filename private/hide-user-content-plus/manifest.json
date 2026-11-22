@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.hide-user-content-plus",
+	"name": "Hide User Content+",
+	"description": "Hide or blur images and spoiler-wrap messages from chosen users, from the user's sheet. A private fork of horndogcop's Hide User Content with the user-sheet crash fixed.",
+	"author": "horndogcop",
+	"version": "1.0.1",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	},
+	"contributors": ["Satou (https://github.com/inkmachinegirl \"GitHub\")"]
+}

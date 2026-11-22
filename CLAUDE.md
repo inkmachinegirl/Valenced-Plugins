@@ -28,6 +28,7 @@ Private plugins (folder → name):
 | `no-suggestions-plus` | No Suggestions+ | Fork of MarkLong0467's No Suggestions (GPL-3.0) |
 | `server-drawer-plus` | Server Drawer+ | Fork of Server Drawer (kmmiio99o/Rosie/Benjii, GPL-3.0, from Accentaro/Valenced-Plugins): swipe up on the chat bar opens the drawer |
 | `sekai-stickers` | Sekai Stickers | Fork of bleelblep's Sekai Stickers (CC0; sticker list MIT from TheOriginalAyaka): Sekai tab in the expression picker, drawn on a canvas in a hidden WebView instead of Kotlin |
+| `hide-user-content-plus` | Hide User Content+ | Fork of horndogcop's Hide User Content (**no licence**: forked at the user's explicit request, personal use only, never publish): fixes the user-sheet crash |
 | `better-channel-list` | Better Channel List+ | |
 | `fake-nickname` | Fake Nickname+ | |
 | `ghost-log` | Ghost Log+ | |
@@ -47,4 +48,4 @@ Private plugins (folder → name):
 ## Forks of other people's plugins
 
 Only fork plugins whose licence allows it (GPL/MIT…), keep the licence file and credit the
-original author. dariussbezy's Show Blocked has **no licence** — don't copy or fork it.
+original author. dariussbezy's Show Blocked has **no licence** — don't copy or fork it. (Exception: the user explicitly asked for a private fork of horndogcop's unlicensed Hide User Content; keep it private.)
