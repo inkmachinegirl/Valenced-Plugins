@@ -7,13 +7,17 @@ import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
 import * as discordFinders from '@valenced/discord/utils/modules/finders'
 import { Stores } from '@valenced/discord/flux'
-import { lookupModule } from '@valenced/modules/finders'
-import { withProps } from '@valenced/modules/finders/filters'
+import { getModules, lookupModule } from '@valenced/modules/finders'
+import { withName, withProps } from '@valenced/modules/finders/filters'
 import { instead } from '@valenced/patcher'
 import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
 import { isValidElement, useEffect, useReducer, useState } from 'react'
 import { Pressable, ScrollView, View } from 'react-native'
 import { findModule } from './find'
+import { badgeRow, voiceCounts, withoutVoice } from './voice'
+
+/** RowManager classes already hooked (more than one module can hand out the same one). */
+const badgeHooked = new WeakSet<object>()
 
 /**
  * An eye button in the channel details header that shows blocked and ignored people's messages
@@ -37,18 +41,49 @@ interface Settings {
 	ignored: boolean
 	/** Servers where embeds (link previews) are hidden. */
 	embedGuilds: string[]
+	/** Servers (or DM channels) where voice messages are hidden. */
+	voiceHidden: string[]
+	/** The mic badge with this hour's voice message count. */
+	voiceBadge: boolean
 }
-const DEFAULTS: Settings = { channels: [], ignored: true, embedGuilds: [] }
+const DEFAULTS: Settings = {
+	channels: [],
+	ignored: true,
+	embedGuilds: [],
+	voiceHidden: [],
+	voiceBadge: true,
+}
 let storage: any
 let shown = new Set<string>()
 let ignoredToo = true
 let embedGuilds = new Set<string>()
+let voiceHidden = new Set<string>()
 const settings = (): Settings => ({ ...DEFAULTS, ...(storage?.cache ?? {}) })
 function load() {
 	const s = settings()
 	shown = new Set(s.channels)
 	ignoredToo = s.ignored
 	embedGuilds = new Set(s.embedGuilds)
+	voiceHidden = new Set(s.voiceHidden)
+}
+
+/** Where a voice-message choice applies: the server, or the DM itself. */
+const voiceKey = (channelId: string) => guildOf(channelId) ?? channelId
+
+function toggleVoice(channelId: string) {
+	const key = voiceKey(channelId)
+	const on = !voiceHidden.has(key)
+	if (on) voiceHidden.add(key)
+	else voiceHidden.delete(key)
+	storage?.set?.({ ...settings(), voiceHidden: [...voiceHidden] }, true)
+	for (const l of listeners) l()
+	;(ToastActionCreators as any).open('blocked-toggle', {
+		text: on ? 'Voice messages hidden here' : 'Voice messages shown here again',
+	})
+	try {
+		// The chat list is built again when messages change.
+		;(Stores as any).MessageStore?.emitChange?.()
+	} catch {}
 }
 
 const guildOf = (channelId: string | undefined): string | undefined => {
@@ -153,6 +188,13 @@ function OptionsSheet({ channelId }: { channelId: string }) {
 				onValueChange={() => toggleEmbeds(guildId)}
 			/>
 		) : null,
+		<Row
+			key="voice"
+			label="Hide voice messages"
+			subLabel={guildId ? 'Everywhere in this server' : 'In this chat'}
+			value={voiceHidden.has(voiceKey(channelId))}
+			onValueChange={() => toggleVoice(channelId)}
+		/>,
 		guildId ? (
 			<Row
 				key="never-talked"
@@ -369,6 +411,16 @@ function SettingsPage() {
 						load()
 					}}
 				/>
+				<TableSwitchRow
+					label="Voice message badge"
+					subLabel="A mic and how many voice messages someone sent this hour, next to their name"
+					value={s.voiceBadge}
+					onValueChange={(voiceBadge: boolean) => {
+						const next = { ...s, voiceBadge }
+						storage?.set?.(next, true)
+						setS(next)
+					}}
+				/>
 				<TableRow
 					label="Channels showing them"
 					subLabel={`${s.channels.length}. Tap the eye in a channel's details to change one`}
@@ -471,6 +523,70 @@ export default plugin({
 				)
 			}),
 			findModule(
+				'modules/messages/native/createChannelStream.tsx',
+				[],
+				(mod: any) => {
+					if (typeof mod?.default !== 'function') return
+					cleanup(
+						instead(
+							mod,
+							'default',
+							function (this: unknown, args: any[], orig: any) {
+								const out = Reflect.apply(orig, this, args)
+								try {
+									const id = args[0]?.channel?.id
+									return id &&
+										voiceHidden.size &&
+										voiceHidden.has(voiceKey(String(id)))
+										? withoutVoice(out)
+										: out
+								} catch {
+									return out
+								}
+							},
+						),
+					)
+				},
+			),
+			getModules(
+				(withName as any)('RowManager'),
+				(RowManager: any) => {
+					const proto = RowManager?.prototype
+					if (typeof proto?.generate !== 'function' || badgeHooked.has(proto))
+						return
+					badgeHooked.add(proto)
+					cleanup(
+						instead(
+							proto,
+							'generate',
+							function (this: unknown, args: any[], orig: any) {
+								const row = Reflect.apply(orig, this, args)
+								try {
+									if (!settings().voiceBadge) return row
+									const m = args[0]?.message
+									const channelId = m?.channel_id
+									const author = m?.author?.id
+									if (!channelId || !author) return row
+									const list =
+										(Stores as any).MessageStore?.getMessages?.(
+											channelId,
+										)?.toArray?.() ?? []
+									const n =
+										voiceCounts(String(channelId), list).get(String(author)) ??
+										0
+									return n
+										? badgeRow(row, n, guildOf(String(channelId)) ?? null)
+										: row
+								} catch {
+									return row
+								}
+							},
+						),
+					)
+				},
+				{ max: 5 } as any,
+			) as any,
+			findModule(
 				'modules/user_settings/UserSettings.tsx',
 				['RenderEmbeds'],
 				(mod: any) => {
@@ -482,6 +598,7 @@ export default plugin({
 				storage = undefined
 				shown = new Set()
 				embedGuilds = new Set()
+				voiceHidden = new Set()
 				for (const l of embedListeners) l()
 				try {
 					;(Stores as any).RelationshipStore?.emitChange?.()

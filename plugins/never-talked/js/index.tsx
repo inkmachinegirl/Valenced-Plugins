@@ -79,7 +79,7 @@ function SettingsPage() {
 				/>
 				<TableRow
 					label="Hide them in a server"
-					subLabel="Blocked Messages Toggle's eye menu on the member list has a switch for it"
+					subLabel="Chat Filters' eye menu on the member list has a switch for it"
 				/>
 			</TableRowGroup>
 			<TableRowGroup title="Status">
