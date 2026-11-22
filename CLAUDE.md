@@ -26,6 +26,7 @@ Private plugins (folder → name):
 | `last-online-plus` | Last Online Tracker+ | Fork of k1ng_op's Last Online Tracker (GPL-3.0) |
 | `favorite-anything-plus` | Favorite Anything+ | Fork of TheUnrealZaka's Favorite Anything (MIT) |
 | `no-suggestions-plus` | No Suggestions+ | Fork of MarkLong0467's No Suggestions (GPL-3.0) |
+| `server-drawer-plus` | Server Drawer+ | Fork of Server Drawer (kmmiio99o/Rosie/Benjii, GPL-3.0, from Accentaro/Valenced-Plugins): swipe up on the chat bar opens the drawer |
 | `better-channel-list` | Better Channel List+ | |
 | `fake-nickname` | Fake Nickname+ | |
 | `ghost-log` | Ghost Log+ | |
