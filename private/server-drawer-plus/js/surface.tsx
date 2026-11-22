@@ -342,6 +342,22 @@ export function createServerDrawer(
 		}
 	}
 
+	/** Fork (Server Drawer+): the drawer height that fits [count] items. */
+	function fitDrawerHeight(
+		full: number,
+		count: number,
+		columns: number,
+		grid: boolean,
+	) {
+		const HANDLE = 16
+		const HEADER = 50
+		const SEARCH_AND_FILTERS = 104
+		const BOTTOM = 20
+		const rows = Math.ceil(count / Math.max(1, columns))
+		const body = count ? rows * (grid ? 82 : 68) : 180
+		return Math.min(full, HANDLE + HEADER + SEARCH_AND_FILTERS + body + BOTTOM)
+	}
+
 	function Icon({
 		name,
 		color,
@@ -2236,7 +2252,7 @@ export function createServerDrawer(
 
 			const {
 				dockSpecs,
-				drawerHeight,
+				drawerHeight: fullDrawerHeight,
 				panelLeft,
 				grid,
 				columns,
@@ -2273,6 +2289,14 @@ export function createServerDrawer(
 					: data.directMessages,
 				filter,
 				query,
+			)
+			// Fork (Server Drawer+): only as tall as what's in it (handle, header, search and
+			// filters, then the rows), up to the full height when there's more than fits.
+			const drawerHeight = fitDrawerHeight(
+				fullDrawerHeight,
+				visible.length,
+				grid ? columns : 1,
+				grid,
 			)
 			const drag = useReorder(data.directMessages)
 			const preview = usePreview(previewWidth, grid, drag.feedback)
