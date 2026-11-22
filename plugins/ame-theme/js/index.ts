@@ -848,7 +848,7 @@ export default plugin({
 		})
 		themes.registerTheme('ame', 'ame-rose-background', {
 			name: 'Ame-chan Rose (Background)',
-			description: 'Her in the wine dress with a rose, melting into true black.',
+			description: 'Her in the wine dress with a rose at the bottom of the screen, melting into true black.',
 			getColors: roseColors,
 			background: {
 				path: 'assets/ame-rose.jpg',
