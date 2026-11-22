@@ -26,9 +26,9 @@ import React from 'react'
 import * as Native from 'react-native'
 import type * as t from './types'
 
-/** Upward and mostly vertical: a short drag is enough, or a quick flick. */
+/** Upward and mostly vertical: a light swipe is enough (about 16 px), or a tiny quick flick. */
 export const isSwipeUp = (dx: number, dy: number, vy = 0) =>
-	(dy < -32 || (dy < -12 && vy < -450)) && Math.abs(dy) > Math.abs(dx) * 0.8
+	(dy < -16 || (dy < -6 && vy < -250)) && Math.abs(dy) > Math.abs(dx) * 0.6
 
 /** For the settings page: whether swipes reach the plugin. */
 export const swipeStatus = { touches: 0, swipes: 0, opened: 0 }
@@ -77,8 +77,8 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 		}
 		return (
 			g.Gesture.Pan()
-				// Takes over after a small upward move; sideways drift is allowed well before it gives up.
-				.activeOffsetY(-10)
+				// Takes over after a tiny upward move; sideways drift is allowed well before it gives up.
+				.activeOffsetY(-4)
 				.failOffsetX([-70, 70])
 				// The area reaches all the way down below the chat bar (to the screen bottom; Android keeps
 				// its own home-gesture strip at the very edge) and a bit above it.
