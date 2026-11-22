@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "dev.ketsuyumi.profile-widgets",
 	"name": "Profile Widgets",
-	"description": "Edit your profile's game widgets on mobile: add, remove and reorder games in Favorite Game, Games in Rotation, Games I Like and Want to Play, with comments and tags.",
+	"description": "Edit your profile's game widgets on mobile, right on your profile: turns on Discord's own widget editor on your Board tab and in Edit Profile (add widgets, games, comments and tags). The plugin's settings page is still there as a backup editor.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "GameControllerIcon",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

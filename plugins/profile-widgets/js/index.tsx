@@ -1,3 +1,5 @@
+import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
+import { instead } from '@valenced/patcher'
 import { ToastActionCreators } from '@valenced/discord/actions'
 import { Design } from '@valenced/discord/design'
 import { useEffect, useMemo, useState } from 'react'
@@ -503,7 +505,31 @@ function EditView({
 	)
 }
 
+/**
+ * Discord ships its own mobile widget editor (add widgets, games, comments and tags right on your
+ * profile's Board tab and in Edit Profile) behind the "2026-10-mobile-widget-editing" experiment.
+ * Its only switch is this hook; the original still runs (it calls React hooks itself, so skipping
+ * it would change the hook count of screens already open) and its answer is replaced with true.
+ */
+const EXPERIMENT = 'modules/user_profile/experiments/MobileWidgetEditingExperiment.tsx'
+
 export default plugin({
-	start() {},
+	start({ cleanup }) {
+		cleanup(
+			getModuleWithImportedPath<any>(EXPERIMENT, mod => {
+				if (typeof mod?.useIsMobileWidgetEditingEnabled !== 'function') return
+				cleanup(
+					instead(
+						mod,
+						'useIsMobileWidgetEditingEnabled',
+						function (this: unknown, args: any[], orig: (...a: any[]) => any) {
+							Reflect.apply(orig, this, args)
+							return true
+						},
+					),
+				)
+			}),
+		)
+	},
 	SettingsComponent: SettingsPage,
 })
