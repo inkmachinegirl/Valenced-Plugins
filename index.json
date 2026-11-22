@@ -1474,6 +1474,30 @@
         }
       }
     },
+    "dev.ketsuyumi.never-talked": {
+      "name": "Never Talked",
+      "description": "Marks people in a server's member list who have never sent a message there (\"Never talked here\" under their name), and can hide them per server. Checks only the people you see, slowly, and remembers the answers.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "ChatXIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.never-talked@1.0.0.zip",
+          "sha256": "790fbddc5605eeceaecb7de1261258d76e66e2936706fe06abfb49a7694d917e",
+          "size": 2947,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.no-blackout": {
       "name": "No Blackout",
       "description": "Stops the screen going black during calls when the proximity sensor is covered (for example by a finger near the top of the screen). Android only.",
