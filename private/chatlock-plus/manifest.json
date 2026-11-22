@@ -1,0 +1,27 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.chatlock-plus",
+	"name": "Chat Lock+",
+	"description": "Lock and hide chats with your password or fingerprint. A private fork of coder.gg's Chat Lock (GPL-3.0) that no longer crashes an open chat when the plugin starts or updates without a reload.",
+	"icon": "LockIcon",
+	"author": "coder.gg <1099039269391171765> (https://il1ll.github.io \"Website\") (https://github.com/il1ll \"GitHub\")",
+	"version": "3.5.6",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js",
+		"android": {
+			"path": "plugin.jar",
+			"class": "com.coder.chatlock.ChatLock"
+		}
+	},
+	"contributors": [
+		"Satou (https://github.com/inkmachinegirl \"GitHub\")"
+	]
+}
