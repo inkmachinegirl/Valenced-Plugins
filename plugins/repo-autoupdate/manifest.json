@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.repo-autoupdate",
+	"name": "Satou's Plugins Auto Update",
+	"description": "Checks only Satou's plugin repository every few minutes and installs updates, and plugins that are newly published, as soon as they're out. Other repositories are left alone.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "DownloadIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
