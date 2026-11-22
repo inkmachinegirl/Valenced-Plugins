@@ -27,6 +27,7 @@ Private plugins (folder → name):
 | `favorite-anything-plus` | Favorite Anything+ | Fork of TheUnrealZaka's Favorite Anything (MIT) |
 | `no-suggestions-plus` | No Suggestions+ | Fork of MarkLong0467's No Suggestions (GPL-3.0) |
 | `server-drawer-plus` | Server Drawer+ | Fork of Server Drawer (kmmiio99o/Rosie/Benjii, GPL-3.0, from Accentaro/Valenced-Plugins): swipe up on the chat bar opens the drawer |
+| `sekai-stickers` | Sekai Stickers | Fork of bleelblep's Sekai Stickers (CC0; sticker list MIT from TheOriginalAyaka): Sekai tab in the expression picker, drawn on a canvas in a hidden WebView instead of Kotlin |
 | `better-channel-list` | Better Channel List+ | |
 | `fake-nickname` | Fake Nickname+ | |
 | `ghost-log` | Ghost Log+ | |

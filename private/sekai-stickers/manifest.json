@@ -1,0 +1,21 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.sekai-stickers",
+	"name": "Sekai Stickers",
+	"description": "Make Project Sekai stickers from a new Sekai tab in the emoji, GIF and sticker picker: pick a character, write your text, move, resize, tilt and curve it, then add it to your message or save it. A private fork, drawn without native code.",
+	"author": "bleelblep",
+	"icon": "StickerIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	},
+	"contributors": ["Satou (https://github.com/inkmachinegirl \"GitHub\")"]
+}
