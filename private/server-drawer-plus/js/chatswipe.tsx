@@ -80,8 +80,9 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 				// Takes over after a small upward move; sideways drift is allowed well before it gives up.
 				.activeOffsetY(-10)
 				.failOffsetX([-70, 70])
-				// The area reaches below the chat bar (down to the screen's bottom) and a bit above it.
-				.hitSlop({ top: 36, bottom: 120 })
+				// The area reaches all the way down below the chat bar (to the screen bottom; Android keeps
+				// its own home-gesture strip at the very edge) and a bit above it.
+				.hitSlop({ top: 36, bottom: 600 })
 				.runOnJS(true)
 				.onBegin(() => {
 					fired = false
