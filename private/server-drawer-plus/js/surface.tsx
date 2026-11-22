@@ -2202,7 +2202,8 @@ export function createServerDrawer(
 				view: session.current.view,
 				folderId: session.current.folderId ?? undefined,
 				retainedFolderId: session.current.folderId ?? undefined,
-				filter: 'all',
+				// Fork (Server Drawer+): the swipe-opened drawer starts on Unreads.
+				filter: overlay ? 'unread' : 'all',
 				query: '',
 			})
 			const setUi = (next: Partial<t.DrawerState>) => {
