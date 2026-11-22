@@ -1480,13 +1480,26 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "ChatXIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.0.1"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.never-talked@1.0.0.zip",
           "sha256": "790fbddc5605eeceaecb7de1261258d76e66e2936706fe06abfb49a7694d917e",
           "size": 2947,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.1": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.never-talked@1.0.1.zip",
+          "sha256": "fda3b1406a8a13dcbafd3f9295aa12a8c4fe82d9be8282cba2f9331cffa345d6",
+          "size": 2939,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
