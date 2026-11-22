@@ -1191,6 +1191,30 @@
         }
       }
     },
+    "dev.ketsuyumi.hide-server-guide": {
+      "name": "Hide Server Guide",
+      "description": "Removes the Server Guide row from the top of every server's channel list.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "EyeSlashIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.hide-server-guide@1.0.0.zip",
+          "sha256": "46641c4ee5103e3a51fcf0cd28fcaabd0ac921265e243a9d3acb40925114eae6",
+          "size": 1064,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.hide-stream-previews": {
       "name": "Hide Stream Previews",
       "description": "Hides the floating call / stream preview tile that stays over the chat after you leave the call screen. Switch it on or off from the call's own menu.",
@@ -2422,6 +2446,30 @@
             },
             "valenced.api.themes": {
               "version": ">=1.0.1 <2"
+            }
+          }
+        }
+      }
+    },
+    "dev.ketsuyumi.unfollow-category": {
+      "name": "Unfollow Category",
+      "description": "In a server's Channels & Roles, an Unfollow all link next to Follow Category unticks every channel in that category at once, even when the category box is already unticked.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "ChannelListIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.unfollow-category@1.0.0.zip",
+          "sha256": "f77328bb566ba409bb554ea1216aa1d51c95fe4c107f9ceabcf0cbebb33c632c",
+          "size": 2163,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
             }
           }
         }
