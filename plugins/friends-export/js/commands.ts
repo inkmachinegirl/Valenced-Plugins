@@ -143,7 +143,10 @@ function findMessageActions(): any {
 	if (messageActions) return messageActions
 	const { lookupModule } = modulesFinders
 	const { withProps } = filters
-	const [mod] = lookupModule(withProps('receiveMessage', 'sendMessage')) as [any, number | undefined]
+	const [mod] = lookupModule(withProps('receiveMessage', 'sendMessage')) as [
+		any,
+		number | undefined,
+	]
 	const host = typeof mod?.sendMessage === 'function' ? mod : mod?.default
 	if (typeof host?.sendMessage === 'function') messageActions = host
 	return messageActions
@@ -161,7 +164,10 @@ function findMessageActions(): any {
 function sendAsUser(channelId: string | undefined, content: string) {
 	const actions = findMessageActions()
 	if (!channelId || !actions) {
-		reportError('[commands] could not send: no channel or no MessageActions', new Error('missing'))
+		reportError(
+			'[commands] could not send: no channel or no MessageActions',
+			new Error('missing'),
+		)
 		return
 	}
 	let options: Record<string, unknown> = {}
@@ -173,7 +179,12 @@ function sendAsUser(channelId: string | undefined, content: string) {
 	}
 	if (options.nonce == null) options.nonce = fakeSnowflake()
 	Promise.resolve(
-		actions.sendMessage(channelId, { content, tts: false, invalidEmojis: [], validNonShortcutEmojis: [] }, undefined, options),
+		actions.sendMessage(
+			channelId,
+			{ content, tts: false, invalidEmojis: [], validNonShortcutEmojis: [] },
+			undefined,
+			options,
+		),
 	).catch(error => reportError('[commands] sending failed:', error))
 }
 
@@ -183,6 +194,67 @@ function extract(mod: any): unknown {
 	if (Array.isArray(mod?.default?.BUILT_IN_COMMANDS))
 		return mod.default.BUILT_IN_COMMANDS
 	return undefined
+}
+
+/**
+ * Discord's command search (`scoreCommand` in ApplicationCommandIndexStore) calls
+ * `toLocaleLowerCase` on `untranslatedName`, `displayName` and `untranslatedDescription` without
+ * checking them, so one entry missing any of them (from any plugin) crashes the chat box when you
+ * type `/`. Fill them from whatever the entry does have.
+ */
+function repair(command: any) {
+	if (!command || typeof command !== 'object') return command
+	try {
+		const name = String(
+			command.untranslatedName ??
+				command.name ??
+				command.displayName ??
+				'command',
+		)
+		const description = String(
+			command.untranslatedDescription ??
+				command.description ??
+				command.displayDescription ??
+				'',
+		)
+		if (typeof command.name !== 'string') command.name = name
+		if (typeof command.untranslatedName !== 'string')
+			command.untranslatedName = name
+		if (typeof command.displayName !== 'string') command.displayName = name
+		if (typeof command.description !== 'string')
+			command.description = description
+		if (typeof command.untranslatedDescription !== 'string')
+			command.untranslatedDescription = description
+		if (typeof command.displayDescription !== 'string')
+			command.displayDescription = description
+		if (Array.isArray(command.options))
+			for (const option of command.options)
+				if (option && typeof option.name !== 'string')
+					option.name = String(option.displayName ?? 'option')
+	} catch {
+		/* a frozen entry: leave it */
+	}
+	return command
+}
+
+/** Repairs every entry now, and each one pushed later. */
+function guardRegistry(registry: any[]): () => void {
+	for (const command of registry) repair(command)
+	const own = Object.prototype.hasOwnProperty.call(registry, 'push')
+	const previous = registry.push
+	const push = function (this: any[], ...items: any[]) {
+		return previous.apply(this, items.map(repair))
+	}
+	try {
+		registry.push = push
+	} catch {
+		return () => {}
+	}
+	return () => {
+		if (registry.push !== push) return
+		if (own) registry.push = previous
+		else delete (registry as any).push
+	}
 }
 
 /**
@@ -217,7 +289,11 @@ function buildEntry(definition: CommandDefinition, id: string) {
 		})),
 		execute(args: CommandArgument[], context: CommandContext) {
 			const result = definition.execute(args, context)
-			if (result && !(result instanceof Promise) && typeof result.content === 'string') {
+			if (
+				result &&
+				!(result instanceof Promise) &&
+				typeof result.content === 'string'
+			) {
 				sendAsUser(context?.channel?.id, result.content)
 				return
 			}
@@ -263,6 +339,7 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 	}
 
 	let registry: any[] | undefined
+	let unguard: (() => void) | undefined
 	/** Entries waiting for the registry to turn up. */
 	const queued = new Map<string, any>()
 	let watching = false
@@ -283,11 +360,13 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		if (registry || !Array.isArray(array)) return false
 
 		registry = array as any[]
+		unguard = guardRegistry(registry)
 		status.found = true
 		status.via = via
-		if (DEBUG) console.log(
-			`${tag} command registry found via ${via} (${registry.length} built-ins)`,
-		)
+		if (DEBUG)
+			console.log(
+				`${tag} command registry found via ${via} (${registry.length} built-ins)`,
+			)
 
 		// Anything registered before the module arrived goes in now.
 		for (const [id, entry] of queued) {
@@ -308,8 +387,7 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		// Route 1: by source path. The namespace moved between Revenge builds, and the short one
 		// throws rather than returning undefined, so try both and let either answer.
 		try {
-			const finders =
-				(discordFinders as any)
+			const finders = discordFinders as any
 			if (typeof finders?.getModuleWithImportedPath === 'function') {
 				const unsub = finders.getModuleWithImportedPath(
 					BUILT_INS_PATH,
@@ -319,9 +397,10 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 				)
 				if (typeof unsub === 'function') teardown.push(unsub)
 			} else {
-				if (DEBUG) console.log(
-					`${tag} no getModuleWithImportedPath on this build; falling back to props`,
-				)
+				if (DEBUG)
+					console.log(
+						`${tag} no getModuleWithImportedPath on this build; falling back to props`,
+					)
 			}
 		} catch (error) {
 			reportError(`${tag} imported-path lookup threw:`, error)
@@ -358,6 +437,7 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		status.registered.push(definition.name)
 
 		if (registry) {
+			if (!unguard) unguard = guardRegistry(registry)
 			// Re-registering after a reload would otherwise show the command twice.
 			const stale = registry.findIndex(command => command?.id === id)
 			if (stale !== -1) registry.splice(stale, 1)
@@ -377,6 +457,10 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 			status.registered = status.registered.filter(
 				name => name !== definition.name,
 			)
+			if (!status.registered.length) {
+				unguard?.()
+				unguard = undefined
+			}
 			// Only stop waiting once nothing is left waiting; the plugin's other commands may
 			// still be queued for a registry that has not turned up yet.
 			if (queued.size === 0) stopWatching()
@@ -429,7 +513,12 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 		return receiver
 	}
 
-	function clientMessage({ channelId, content, author = owner, id }: ClientMessageOptions) {
+	function clientMessage({
+		channelId,
+		content,
+		author = owner,
+		id,
+	}: ClientMessageOptions) {
 		return {
 			id: id ?? fakeSnowflake(),
 			type: 0,
@@ -486,7 +575,9 @@ export function createCommands(owner: string, avatar: DefaultAvatar = 0) {
 	}
 
 	/** Rewrites a message shown with `showClientMessage({ id })`, in place. Local only. */
-	function updateClientMessage(options: ClientMessageOptions & { id: string }): boolean {
+	function updateClientMessage(
+		options: ClientMessageOptions & { id: string },
+	): boolean {
 		return dispatch({ type: 'MESSAGE_UPDATE', message: clientMessage(options) })
 	}
 

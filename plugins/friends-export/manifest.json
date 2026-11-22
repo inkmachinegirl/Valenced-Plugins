@@ -5,7 +5,7 @@
 	"description": "Export your friends list (and optionally blocked users and requests) as text, CSV or JSON: copy it, save it to a file, or use /friendslist.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "FriendsIcon",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
