@@ -9,7 +9,7 @@ import { after, before } from '@valenced/patcher'
 import React from 'react'
 import * as Native from 'react-native'
 import { computeGuildDockSpecs } from './data'
-import { patchChatSwipe } from './chatswipe'
+import { overlay, patchChatSwipe } from './chatswipe'
 import { patchFocusMenu } from './focus'
 import SettingsComponent, { DefaultSettings } from './settings'
 import { createServerDrawer, DOCK_REST_OFFSET } from './surface'
@@ -176,6 +176,8 @@ export default plugin<{ jsonStorage: t.ServerDrawerPreferences }>({
 							)
 						}
 						const DrawerSurface = createServerDrawer(jsonStorage, abort.signal)
+						// Fork (Server Drawer+): the same surface, shown over any screen by the chat bar swipe.
+						overlay.Surface = DrawerSurface
 						const useInset = () => {
 							const height = inset.useYouBarTotalHeight()
 							return Math.max(0, Number.isFinite(height) ? height : 0)

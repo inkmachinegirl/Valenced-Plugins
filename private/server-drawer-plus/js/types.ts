@@ -179,6 +179,10 @@ export interface ServerDrawerSurfaceProps {
 	bottomInset: number
 	onWidthChange(width: number): void
 	onFocusChange(focused: boolean): void
+	/** Fork (Server Drawer+): a copy shown over any screen; opens at once. */
+	overlay?: boolean
+	/** Fork (Server Drawer+): the overlay copy closed. */
+	onCollapsed?(): void
 }
 
 export interface MenuItem {

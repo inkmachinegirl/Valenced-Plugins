@@ -1,59 +1,119 @@
 /**
- * Fork (Server Drawer+): swipe up on the chat bar to open the server drawer, the way LaunchPad's
- * swipe opens LaunchPad. The drawer lives in the server/channel list panel, so the chat is first
- * slid away with the same back action Android's back gesture uses there (only while a chat is
- * open, so it can never close the app), then the drawer opens.
+ * Fork (Server Drawer+): swipe up on the chat bar (in a server or DM) to open the server drawer
+ * right there, over the screen you're on, the way LaunchPad's swipe opens LaunchPad.
+ *
+ * - The swipe is a native pan from Discord's gesture handler (the same module the drawer uses):
+ *   it only activates on a clear upward drag and fails on sideways ones, so taps and typing in
+ *   the chat bar are untouched, and once active it wins over the text box.
+ * - The drawer is a second copy of the drawer surface in an overlay at the app's root (where the
+ *   toasts are drawn), opened at once; closing it, or picking a server or DM, takes it away.
+ *   Nothing navigates, so you stay where you were.
  */
 
-import { Stores } from '@valenced/discord/flux'
-import { getModules } from '@valenced/modules/finders'
+import { getModules, lookupModule } from '@valenced/modules/finders'
 import {
 	createFilterGenerator,
 	FilterScopes,
+	withProps,
 } from '@valenced/modules/finders/filters'
+import {
+	getModuleWithImportedPath,
+	lookupModuleWithImportedPath,
+} from '@valenced/discord/utils/modules/finders'
+import { ReactNativeSafeAreaContext } from '@valenced/externals/react-native-safe-area-context'
 import { after } from '@valenced/patcher'
 import React from 'react'
 import * as Native from 'react-native'
-import { drawerControl } from './control'
+import type * as t from './types'
 
-const S = () => Stores as any
-
-/** Upward, clearly vertical, long enough. */
-const MIN_DY = 50
+/** Upward, long enough to mean it. */
 export const isSwipeUp = (dx: number, dy: number) =>
-	dy < -MIN_DY && Math.abs(dy) > Math.abs(dx) * 1.5
+	dy < -50 && Math.abs(dy) > Math.abs(dx) * 1.5
 
-function inChat(): boolean {
+// The overlay: one shared open flag, and the drawer surface component set by index.tsx.
+const listeners = new Set<() => void>()
+let shown = false
+export const overlay: {
+	Surface?: React.ComponentType<t.ServerDrawerSurfaceProps>
+} = {}
+export function showOverlay(on: boolean) {
+	if (shown === on) return
+	shown = on
+	for (const l of listeners) l()
+}
+
+function gestureModule(): any {
 	try {
-		const { SelectedChannelStore } = S()
-		return !!SelectedChannelStore?.getChannelId?.()
+		const [g] = lookupModule(
+			(withProps as any)('Gesture', 'GestureDetector'),
+		) as any
+		return g
 	} catch {
-		return false
+		return undefined
 	}
 }
 
-export function openFromChat() {
-	if (!inChat()) return drawerControl.open?.()
-	try {
-		// The chat's own back handling slides back to the server/channel list.
-		Native.DeviceEventEmitter.emit('hardwareBackPress', {})
-	} catch {}
-	setTimeout(() => drawerControl.open?.(), 320)
+function SwipeArea({ children }: { children: React.ReactNode }) {
+	const g = gestureModule()
+	const pan = React.useMemo(() => {
+		if (!g?.Gesture?.Pan) return undefined
+		return g.Gesture.Pan()
+			.activeOffsetY(-24)
+			.failOffsetX([-24, 24])
+			.runOnJS(true)
+			.onEnd((e: any) => {
+				if (isSwipeUp(e?.translationX ?? 0, e?.translationY ?? 0))
+					showOverlay(true)
+			})
+	}, [g])
+	if (!g?.GestureDetector || !pan) return <>{children}</>
+	const Detector = g.GestureDetector
+	return (
+		<Detector gesture={pan}>
+			<Native.View collapsable={false}>{children}</Native.View>
+		</Detector>
+	)
 }
 
-const responder = Native.PanResponder.create({
-	// Never on touch down: taps and typing stay the chat bar's.
-	onStartShouldSetPanResponder: () => false,
-	onMoveShouldSetPanResponderCapture: (_e, g) =>
-		g.dy < -20 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
-	onPanResponderRelease: (_e, g) => {
-		if (isSwipeUp(g.dx, g.dy)) openFromChat()
-	},
-	onPanResponderTerminationRequest: () => true,
-})
-
-function SwipeArea({ children }: { children: React.ReactNode }) {
-	return <Native.View {...responder.panHandlers}>{children}</Native.View>
+/** Drawn at the app's root: the drawer over the current screen while shown. */
+export function OverlayHost() {
+	const [, tick] = React.useState(0)
+	React.useEffect(() => {
+		const l = () => tick(n => n + 1)
+		listeners.add(l)
+		return () => {
+			listeners.delete(l)
+		}
+	}, [])
+	const Surface = overlay.Surface
+	if (!shown || !Surface) return null
+	const bottom =
+		(ReactNativeSafeAreaContext as any)?.initialWindowMetrics?.insets?.bottom ??
+		0
+	return (
+		<Native.View
+			style={[
+				Native.StyleSheet.absoluteFill,
+				{ zIndex: 9999, elevation: 9999 },
+			]}
+		>
+			<Native.Pressable
+				accessibilityLabel="Close the server drawer"
+				style={[
+					Native.StyleSheet.absoluteFill,
+					{ backgroundColor: 'rgba(0,0,0,0.45)' },
+				]}
+				onPress={() => showOverlay(false)}
+			/>
+			<Surface
+				overlay
+				bottomInset={bottom}
+				onWidthChange={() => {}}
+				onFocusChange={() => {}}
+				onCollapsed={() => showOverlay(false)}
+			/>
+		</Native.View>
+	)
 }
 
 const withChatInput = createFilterGenerator<[]>(
@@ -68,6 +128,17 @@ const withChatInput = createFilterGenerator<[]>(
 	FilterScopes.Initialized,
 )
 
+const TOASTS = 'modules/toast/native/AppToastContainer.tsx'
+/** The app-root toast container, now or once Discord loads it. */
+function onToastContainer(cb: (mod: any) => void): () => void {
+	const [now] = lookupModuleWithImportedPath(TOASTS) as any
+	if (now) {
+		cb(now)
+		return () => {}
+	}
+	return (getModuleWithImportedPath as any)(TOASTS, cb) ?? (() => {})
+}
+
 export function patchChatSwipe(
 	cleanup: (...fns: Array<() => unknown>) => unknown,
 ) {
@@ -81,5 +152,17 @@ export function patchChatSwipe(
 				),
 			)
 		}),
+		onToastContainer((mod: any) => {
+			if (typeof mod?.default !== 'function') return
+			cleanup(
+				after(mod, 'default', (rendered: any) => (
+					<>
+						{rendered}
+						<OverlayHost />
+					</>
+				)),
+			)
+		}),
+		() => showOverlay(false),
 	)
 }

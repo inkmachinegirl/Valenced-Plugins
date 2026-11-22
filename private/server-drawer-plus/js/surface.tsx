@@ -27,7 +27,6 @@ import * as Native from 'react-native'
 import { createDragMotion } from './drag'
 import { focusMenus } from './focus'
 import { reportActionFailure } from './index'
-import { drawerControl } from './control'
 import { createDrawerMotion } from './motion'
 import { getNative, withStoreDependencies } from './native'
 import { DefaultSettings } from './settings'
@@ -2134,6 +2133,8 @@ export function createServerDrawer(
 			bottomInset,
 			onWidthChange,
 			onFocusChange,
+			overlay,
+			onCollapsed,
 		}: t.ServerDrawerSurfaceProps) {
 			const root = useRef<Native.View>(null)
 			const focusGeneration = useRef(0)
@@ -2326,14 +2327,19 @@ export function createServerDrawer(
 				return true
 			})
 
-			// Fork (Server Drawer+): the chat bar's swipe up opens the drawer from outside.
+			// Fork (Server Drawer+): the overlay copy opens as soon as it's shown (next frame, so
+			// it slides up), and reports when it has closed again.
+			const overlayWasOpen = useRef(false)
 			useEffect(() => {
-				const open = () => setUi({ expanded: true })
-				drawerControl.open = open
-				return () => {
-					if (drawerControl.open === open) drawerControl.open = undefined
-				}
+				if (!overlay) return
+				const timer = setTimeout(() => setUi({ expanded: true }), 16)
+				return () => clearTimeout(timer)
 			}, [])
+			useEffect(() => {
+				if (!overlay) return
+				if (expanded) overlayWasOpen.current = true
+				else if (overlayWasOpen.current) onCollapsed?.()
+			}, [expanded])
 
 			function setDrawerOpen(open: boolean, reset = true) {
 				setUi({
