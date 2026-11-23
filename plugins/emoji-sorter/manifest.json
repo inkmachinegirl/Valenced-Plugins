@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.emoji-sorter",
+	"name": "Emoji Sorter",
+	"description": "Find emojis faster in the emoji and reaction pickers: an Animated section with all your animated emojis, servers sorted A to Z, by most emojis or most animated, the server you're in kept first, and servers you can't use hidden.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "ReactionIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
