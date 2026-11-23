@@ -1463,7 +1463,7 @@
       ],
       "icon": "ChatIcon",
       "channels": {
-        "latest": "1.4.0"
+        "latest": "1.5.0"
       },
       "versions": {
         "1.0.0": {
@@ -1561,6 +1561,19 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.meow-picker@1.4.0.zip",
           "sha256": "743bac7525776428d9ceb7ff2fa1a38b8238a5e750254f9e6f0d869105f52083",
           "size": 9506,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.5.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.meow-picker@1.5.0.zip",
+          "sha256": "39646a2433a76aa773bfb3d838cd88fa12e9821a721944f85bf8685b940c3799",
+          "size": 9748,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
