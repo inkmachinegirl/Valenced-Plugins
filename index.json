@@ -1635,6 +1635,30 @@
         }
       }
     },
+    "dev.ketsuyumi.plugin-sort": {
+      "name": "Plugin Sort",
+      "description": "More sorts and filters in Settings › Plugins: sort by most resource use, longest call (stutters), most calls, slowest startup or most hooks, and filter plugins that cause stutters or that sat unused all session. Uses Performance Monitor's numbers.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "FiltersHorizontalIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.plugin-sort@1.0.0.zip",
+          "sha256": "02c940b7881841aac77dcd652f436e791297cee0c8b0e5d2745a57fdb1004871",
+          "size": 2147,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.profile-widgets": {
       "name": "Profile Widgets",
       "description": "Edit your profile's game widgets on mobile, right on your profile: an Edit widgets button on your Board tab, and Discord's own widget editor turned on where your Discord has it (354.1+). Add, remove and reorder games with comments and tags.",
