@@ -2,6 +2,7 @@ import { Design } from '@valenced/discord/design'
 import { Stores } from '@valenced/discord/flux'
 import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
 import { instead } from '@valenced/patcher'
+import { useState } from 'react'
 import { ScrollView } from 'react-native'
 
 /**
@@ -30,6 +31,10 @@ interface Settings {
 	hideEmpty: boolean
 	usedFirst: boolean
 	openedFirst: boolean
+	/** Server ids never shown in the picker. */
+	hidden: string[]
+	/** Discord's built-in emoji: where they go. */
+	unicode: 'bottom' | 'above' | 'hide'
 }
 const DEFAULTS: Settings = {
 	order: 'discord',
@@ -38,6 +43,8 @@ const DEFAULTS: Settings = {
 	hideEmpty: true,
 	usedFirst: false,
 	openedFirst: false,
+	hidden: [],
+	unicode: 'bottom',
 }
 
 let storage: any
@@ -98,9 +105,9 @@ function reshape(categories: any[], currentGuildId: string | undefined): any[] {
 			guilds.push(c)
 		}
 	})
-	let out = categories
 	if (guilds.length) {
-		const original = guilds.slice()
+		const hidden = new Set(s.hidden ?? [])
+		if (hidden.size) guilds = guilds.filter(c => !hidden.has(c.guild.id))
 		if (s.hideLocked) guilds = guilds.filter(c => !c.isNitroLocked)
 		if (s.hideEmpty) guilds = guilds.filter(c => usable(c).length > 0)
 		const name = (c: any) => String(c.guild?.name ?? '')
@@ -127,20 +134,60 @@ function reshape(categories: any[], currentGuildId: string | undefined): any[] {
 			const at = guilds.findIndex(c => c.guild.id === currentGuildId)
 			if (at > 0) guilds.unshift(...guilds.splice(at, 1))
 		}
-		const changed = guilds.length !== original.length || guilds.some((c, i) => c !== original[i])
-		if (changed) {
-			// Same slots as before; dropped servers leave theirs empty.
-			out = []
-			let g = 0
-			const first = slots[0]
-			categories.forEach((c, i) => {
-				if (!isGuild(c)) out.push(c)
-				else if (i === first) out.push(...guilds.slice(g, (g = guilds.length)))
-			})
-		}
 	}
+	// Put it back together: what was above the servers, the default emoji if moved up, the
+	// servers, then what came after them (the default emoji stay there unless moved or hidden).
+	const isUnicode = (c: any) => c?.type === 'UNICODE'
+	const firstGuild = slots.length ? slots[0] : categories.length
+	const head: any[] = []
+	const tail: any[] = []
+	const unicode: any[] = []
+	categories.forEach((c, i) => {
+		if (isGuild(c)) return
+		if (isUnicode(c) && s.unicode !== 'bottom') unicode.push(c)
+		else (i < firstGuild ? head : tail).push(c)
+	})
+	let out = [...head, ...(s.unicode === 'above' ? unicode : []), ...guilds, ...tail]
+	if (out.length === categories.length && out.every((c, i) => c === categories[i])) out = categories
 	cache.set(categories, { v: version, key, out })
 	return out
+}
+
+/** Every server you're in, with a switch to hide it from the picker, and a search. */
+function HiddenServers({ hidden, onChange }: { hidden: string[]; onChange: (ids: string[]) => void }) {
+	const { TableRowGroup, TableSwitchRow, TextInput } = Design as any
+	const [query, setQuery] = useState('')
+	const ids: string[] = (() => {
+		try {
+			return S.SortedGuildStore?.getFlattenedGuildIds?.() ?? Object.keys(S.GuildStore?.getGuilds?.() ?? {})
+		} catch {
+			return []
+		}
+	})()
+	const q = query.trim().toLowerCase()
+	const rows = ids
+		.map(id => ({ id, name: String(S.GuildStore?.getGuild?.(id)?.name ?? id) }))
+		.filter(g => !q || g.name.toLowerCase().includes(q))
+	const off = new Set(hidden)
+	return (
+		<>
+			{TextInput ? (
+				<TextInput placeholder="Search your servers" value={query} onChange={setQuery} isClearable size="sm" />
+			) : null}
+			<TableRowGroup title={`Hide servers from the picker${off.size ? ` (${off.size} hidden)` : ''}`}>
+				{rows.map(g => (
+					<TableSwitchRow
+						key={g.id}
+						label={g.name}
+						value={off.has(g.id)}
+						onValueChange={(on: boolean) =>
+							onChange(on ? [...off, g.id] : hidden.filter(id => id !== g.id))
+						}
+					/>
+				))}
+			</TableRowGroup>
+		</>
+	)
 }
 
 function SettingsPage() {
@@ -185,6 +232,16 @@ function SettingsPage() {
 				/>
 			</TableRowGroup>
 			<TableRadioGroup
+				title="Default emoji"
+				defaultValue={s.unicode}
+				value={s.unicode}
+				onChange={(unicode: Settings['unicode']) => set({ unicode })}
+			>
+				<TableRadioRow label="At the bottom (Discord's)" value="bottom" />
+				<TableRadioRow label="Above your servers" value="above" />
+				<TableRadioRow label="Hidden" value="hide" />
+			</TableRadioGroup>
+			<TableRadioGroup
 				title="Server order"
 				defaultValue={s.order}
 				value={s.order}
@@ -195,6 +252,7 @@ function SettingsPage() {
 				<TableRadioRow label="Most emojis first" value="most" />
 				<TableRadioRow label="Most animated first" value="animated" />
 			</TableRadioGroup>
+			<HiddenServers hidden={s.hidden ?? []} onChange={hidden => set({ hidden })} />
 			<Text variant="text-xs/medium" color="text-muted">
 				Works in the chat emoji picker and the reaction picker. Changes show the next time the picker opens.
 			</Text>
