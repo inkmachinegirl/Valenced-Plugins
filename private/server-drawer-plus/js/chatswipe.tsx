@@ -39,9 +39,27 @@ let shown = false
 export const overlay: {
 	Surface?: React.ComponentType<t.ServerDrawerSurfaceProps>
 } = {}
+/**
+ * Whether the drawer in the overlay has actually opened. If it hasn't shortly after the overlay
+ * appears (not measured yet, or an accidental swipe it ignored), the dark backdrop would stay on
+ * screen with nothing on it, dimming the app until tapped; the timer below takes it away.
+ */
+let opened = false
+let safety: ReturnType<typeof setTimeout> | undefined
+export function overlayOpened() {
+	opened = true
+}
+
 export function showOverlay(on: boolean) {
 	if (shown === on) return
 	shown = on
+	opened = false
+	if (safety) clearTimeout(safety)
+	safety = on
+		? setTimeout(() => {
+				if (shown && !opened) showOverlay(false)
+			}, 800)
+		: undefined
 	for (const l of listeners) l()
 }
 
@@ -141,6 +159,7 @@ export function OverlayHost() {
 				onWidthChange={() => {}}
 				onFocusChange={() => {}}
 				onCollapsed={() => showOverlay(false)}
+				onExpanded={overlayOpened}
 			/>
 		</Native.View>
 	)

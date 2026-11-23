@@ -184,6 +184,8 @@ export interface ServerDrawerSurfaceProps {
 	overlay?: boolean
 	/** Fork (Server Drawer+): the overlay copy closed. */
 	onCollapsed?(): void
+	/** Overlay only: the drawer has opened. */
+	onExpanded?(): void
 }
 
 export interface MenuItem {

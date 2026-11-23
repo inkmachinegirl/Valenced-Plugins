@@ -2151,6 +2151,7 @@ export function createServerDrawer(
 			onFocusChange,
 			overlay,
 			onCollapsed,
+			onExpanded,
 		}: t.ServerDrawerSurfaceProps) {
 			const root = useRef<Native.View>(null)
 			const focusGeneration = useRef(0)
@@ -2362,7 +2363,10 @@ export function createServerDrawer(
 			}, [])
 			useEffect(() => {
 				if (!overlay) return
-				if (expanded) overlayWasOpen.current = true
+				if (expanded) {
+					overlayWasOpen.current = true
+					onExpanded?.()
+				}
 				else if (overlayWasOpen.current) onCollapsed?.()
 			}, [expanded])
 
