@@ -1134,7 +1134,11 @@ function routeName(): string {
 		return ''
 	}
 }
-const SHOP_ROUTE = /shop|collectible/i
+const SHOP_ROUTE_NAME = /shop|collectible/i
+// Not this plugin's own settings page (its route is named after the plugin: …shop-browser),
+// nor any other Valenced or settings screen.
+const NOT_SHOP = /ketsuyumi|valenced|plugin|setting|shop-browser/i
+const SHOP_ROUTE = { test: (name: string) => SHOP_ROUTE_NAME.test(name) && !NOT_SHOP.test(name) }
 
 function ShopTabs() {
 	const [, tick] = useState(0)

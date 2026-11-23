@@ -37,7 +37,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Profile Widgets** `1.2.1`: edit your game widgets right on your profile, with comments and tags
 • **Quick Access** `1.4.4`: reload, Friends, Plugins and Performance Monitor buttons on the YouBar, each with its own switch
 • **Quick Folders** `1.2.0`: long-press a server to move it to a folder, no dragging
-• **Shop Browser** `1.13.0`: the Shop like on desktop, with Browse, sorting and filters
+• **Shop Browser** `1.13.1`: the Shop like on desktop, with Browse, sorting and filters
 • **Smaller Media** `1.2.2`: make images, GIFs and videos in chat 30-50% smaller, still full size when tapped
 • **Spectators** `1.0.2`: see who's watching a stream, with join/leave notices and a notification with the count while you stream
 • **Stream Tools** `1.0.2`: auto-watch streams, a volume and switch bar, and a clean view

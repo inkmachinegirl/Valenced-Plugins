@@ -5,7 +5,7 @@
 	"description": "The Discord Shop like on desktop: a Featured | Browse switch in the Shop with Browse sections, Sort by, and a filter panel (item type, Orbs eligible, collabs, owned, colour, theme). Nameplates show as long bars, effects and frames big.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "ShopIcon",
-	"version": "1.13.0",
+	"version": "1.13.1",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
