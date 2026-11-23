@@ -736,11 +736,11 @@
     },
     "dev.ketsuyumi.emoji-sorter": {
       "name": "Emoji Sorter",
-      "description": "Find emojis faster in the emoji and reaction pickers: servers whose emojis you use most or that you open most first, servers sorted A to Z, by most emojis or most animated, the server you're in kept first, and servers you can't use or that are empty hidden.",
+      "description": "Find emojis faster in the emoji and reaction pickers: servers whose emojis you use most or that you open most first, servers sorted A to Z, by most emojis or most animated, the server you're in kept first, chosen servers hidden, and Discord's default emoji moved above your servers or hidden.",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "ReactionIcon",
       "channels": {
-        "latest": "1.2.0"
+        "latest": "1.3.0"
       },
       "versions": {
         "1.0.0": {
@@ -773,6 +773,19 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.emoji-sorter@1.2.0.zip",
           "sha256": "293e1c99760b5253bfa7c29f5fd78d88528923d05502b6d0a0536f391e5a2fff",
           "size": 2512,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.3.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.emoji-sorter@1.3.0.zip",
+          "sha256": "f984ec86de8c73bd44578c55b1072da71cbbe4ea539f3fc4b1788a9046061d6a",
+          "size": 3014,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
