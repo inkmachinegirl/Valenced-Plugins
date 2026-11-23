@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.plugin-sort",
+	"name": "Plugin Sort",
+	"description": "More sorts and filters in Settings › Plugins: sort by most resource use, longest call (stutters), most calls, slowest startup or most hooks, and filter plugins that cause stutters or that sat unused all session. Uses Performance Monitor's numbers.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "FiltersHorizontalIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}
