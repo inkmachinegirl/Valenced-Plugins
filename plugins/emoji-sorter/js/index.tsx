@@ -1,4 +1,5 @@
 import { Design } from '@valenced/discord/design'
+import { Stores } from '@valenced/discord/flux'
 import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
 import { instead } from '@valenced/patcher'
 import { ScrollView } from 'react-native'
@@ -27,12 +28,16 @@ interface Settings {
 	currentFirst: boolean
 	hideLocked: boolean
 	hideEmpty: boolean
+	usedFirst: boolean
+	openedFirst: boolean
 }
 const DEFAULTS: Settings = {
 	order: 'discord',
 	currentFirst: true,
 	hideLocked: false,
 	hideEmpty: true,
+	usedFirst: false,
+	openedFirst: false,
 }
 
 let storage: any
@@ -42,6 +47,40 @@ const settings = (): Settings => ({ ...DEFAULTS, ...(storage?.cache ?? {}) })
 const isGuild = (c: any) => c?.type === 'GUILD' && c.guild
 const usable = (c: any) => (c.emojis ?? []).filter((e: any) => !c.emojisHidden?.has?.(e?.id))
 const animatedOf = (c: any) => usable(c).filter((e: any) => e?.animated)
+
+
+const S = Stores as any
+
+/** Per server: how much you use its emojis (Discord's frequently-used list, top ranks weigh most). */
+function emojiUse(): Map<string, number> {
+	const out = new Map<string, number>()
+	try {
+		const list: any[] =
+			S.EmojiStore?.getDisambiguatedEmojiContext?.(null)?.getFrequentlyUsedEmojisWithoutFetchingLatest?.() ?? []
+		list.forEach((e, i) => {
+			const g = e?.guildId ?? e?.guild_id
+			if (g) out.set(g, (out.get(g) ?? 0) + (list.length - i))
+		})
+	} catch {}
+	return out
+}
+
+/** Per server: how often you open it (Discord's own frecency of the server and its channels). */
+function visits(): Map<string, number> {
+	const out = new Map<string, number>()
+	try {
+		const store = S.FrecencyStore
+		const items: any[] = store?.getFrequentlyWithoutFetchingLatest?.() ?? []
+		for (const item of items) {
+			const id = item?.id
+			if (!id) continue
+			const g = S.GuildStore?.getGuild?.(id) ? id : item?.guild_id ?? S.ChannelStore?.getChannel?.(id)?.guild_id
+			if (!g) continue
+			out.set(g, (out.get(g) ?? 0) + (Number(store.getScoreWithoutFetchingLatest?.(id)) || 0))
+		}
+	} catch {}
+	return out
+}
 
 const cache = new WeakMap<object, { v: number; key: string; out: any[] }>()
 
@@ -69,6 +108,21 @@ function reshape(categories: any[], currentGuildId: string | undefined): any[] {
 		else if (s.order === 'most') guilds.sort((a, b) => usable(b).length - usable(a).length || name(a).localeCompare(name(b)))
 		else if (s.order === 'animated')
 			guilds.sort((a, b) => animatedOf(b).length - animatedOf(a).length || name(a).localeCompare(name(b)))
+		if (s.usedFirst || s.openedFirst) {
+			// Stable: ties keep the order chosen above.
+			const used = s.usedFirst ? emojiUse() : undefined
+			const opened = s.openedFirst ? visits() : undefined
+			const id = (c: any) => c.guild.id
+			guilds = guilds
+				.map((c, i) => ({ c, i }))
+				.sort(
+					(a, b) =>
+						(used ? (used.get(id(b.c)) ?? 0) - (used.get(id(a.c)) ?? 0) : 0) ||
+						(opened ? (opened.get(id(b.c)) ?? 0) - (opened.get(id(a.c)) ?? 0) : 0) ||
+						a.i - b.i,
+				)
+				.map(x => x.c)
+		}
 		if (s.currentFirst && currentGuildId) {
 			const at = guilds.findIndex(c => c.guild.id === currentGuildId)
 			if (at > 0) guilds.unshift(...guilds.splice(at, 1))
@@ -99,6 +153,18 @@ function SettingsPage() {
 	return (
 		<ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80, gap: 16 }}>
 			<TableRowGroup title="Sections">
+				<TableSwitchRow
+					label="Servers whose emojis you use most first"
+					subLabel="From Discord's frequently-used emojis: the servers you pick emojis from most go to the top."
+					value={s.usedFirst}
+					onValueChange={(usedFirst: boolean) => set({ usedFirst })}
+				/>
+				<TableSwitchRow
+					label="Servers you open most first"
+					subLabel="From how often you visit each server (Discord's own count, synced across your devices)."
+					value={s.openedFirst}
+					onValueChange={(openedFirst: boolean) => set({ openedFirst })}
+				/>
 				<TableSwitchRow
 					label="This server first"
 					subLabel="Keep the server you're in at the top, whatever the order."

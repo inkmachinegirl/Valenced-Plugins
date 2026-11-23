@@ -14,7 +14,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **DM Cleanup** `1.0.2`: a smaller Add Friends button, tick DMs and close them all at once
 • **DM Details+** `1.3.1`: hide the New Group button and Files tab in DM details, and add Stickers and Emoji tabs
 • **Download Emojis & Stickers** `1.1.1`: long-press a server to save all its emojis or stickers as a zip
-• **Emoji Sorter** `1.1.0`: sort the emoji picker's servers A to Z, by most emojis or most animated, and hide the ones you can't use
+• **Emoji Sorter** `1.2.0`: put the servers whose emojis you use most, or that you open most, first in the emoji picker, sort the rest and hide the ones you can't use
 • **Embed Playback** `1.4.1`: play YouTube embeds and links over the chat or in a floating window that keeps playing while you scroll
 • **Floating Browser** `1.7.1`: a browser that floats over Discord, with bookmarks and extensions
 • **Folder Mute** `1.0.0`: hold a folder to mute or unmute every server in it, for a set time or until you turn it back on

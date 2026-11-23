@@ -2,10 +2,10 @@
 	"format": 1,
 	"id": "dev.ketsuyumi.emoji-sorter",
 	"name": "Emoji Sorter",
-	"description": "Find emojis faster in the emoji and reaction pickers: servers sorted A to Z, by most emojis or most animated, the server you're in kept first, and servers you can't use or that are empty hidden.",
+	"description": "Find emojis faster in the emoji and reaction pickers: servers whose emojis you use most or that you open most first, servers sorted A to Z, by most emojis or most animated, the server you're in kept first, and servers you can't use or that are empty hidden.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "ReactionIcon",
-	"version": "1.1.0",
+	"version": "1.2.0",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"
