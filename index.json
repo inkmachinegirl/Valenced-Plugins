@@ -915,6 +915,30 @@
         }
       }
     },
+    "dev.ketsuyumi.folder-mute": {
+      "name": "Folder Mute",
+      "description": "Hold a server folder for a third option, Mute folder: mute every server in it for 15 minutes, 1, 3, 8 or 24 hours, or until you turn it back on, like muting a server. Unmute folder brings them back. Works in the server list and in Server Drawer+.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "BellSlashIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.folder-mute@1.0.0.zip",
+          "sha256": "851da5c84ddc42bacc901f56b7f77569e788073e03309d435bdc5e4c36c2903f",
+          "size": 1909,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.forum-grid": {
       "name": "Forum Grid",
       "description": "See forum posts as a grid of cards with images, and filter them by tags, unread, followed, images, your posts, date and reactions, with more ways to sort.",
