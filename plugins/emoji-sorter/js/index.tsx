@@ -23,14 +23,12 @@ const UTILS = 'modules/emoji_picker/EmojiPickerUtils.tsx'
 
 type Order = 'discord' | 'az' | 'most' | 'animated'
 interface Settings {
-	animatedSection: boolean
 	order: Order
 	currentFirst: boolean
 	hideLocked: boolean
 	hideEmpty: boolean
 }
 const DEFAULTS: Settings = {
-	animatedSection: true,
 	order: 'discord',
 	currentFirst: true,
 	hideLocked: false,
@@ -86,32 +84,6 @@ function reshape(categories: any[], currentGuildId: string | undefined): any[] {
 				else if (i === first) out.push(...guilds.slice(g, (g = guilds.length)))
 			})
 		}
-		if (s.animatedSection) {
-			const emojis: any[] = []
-			const disabled = new Set<any>()
-			const seen = new Set<string>()
-			for (const c of original) {
-				if (s.hideLocked && c.isNitroLocked) continue
-				for (const e of animatedOf(c)) {
-					if (!e?.id || seen.has(e.id)) continue
-					seen.add(e.id)
-					emojis.push(e)
-					if (c.emojisDisabled?.has?.(e)) disabled.add(e)
-				}
-			}
-			if (emojis.length) {
-				if (out === categories) out = categories.slice()
-				const at = out.findIndex(isGuild)
-				out.splice(at < 0 ? out.length : at, 0, {
-					type: 'FAVORITES',
-					id: 'emoji-sorter-animated',
-					name: `Animated (${emojis.length})`,
-					isNitroLocked: false,
-					emojis,
-					emojisDisabled: disabled,
-				})
-			}
-		}
 	}
 	cache.set(categories, { v: version, key, out })
 	return out
@@ -127,12 +99,6 @@ function SettingsPage() {
 	return (
 		<ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80, gap: 16 }}>
 			<TableRowGroup title="Sections">
-				<TableSwitchRow
-					label="Animated section"
-					subLabel="All animated emojis from your servers in one section, above the servers."
-					value={s.animatedSection}
-					onValueChange={(animatedSection: boolean) => set({ animatedSection })}
-				/>
 				<TableSwitchRow
 					label="This server first"
 					subLabel="Keep the server you're in at the top, whatever the order."
