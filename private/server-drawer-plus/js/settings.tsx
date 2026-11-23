@@ -6,6 +6,7 @@ import type { ComponentProps } from 'react'
 import type { ServerDrawerPreferences } from './types'
 import { swipeStatus } from './chatswipe'
 import { motionPrefs } from './prefs'
+import { pullPrefs } from './unreadpull'
 
 export const DefaultSettings: ServerDrawerPreferences = {
 	dmOrder: [],
@@ -18,6 +19,7 @@ export const DefaultSettings: ServerDrawerPreferences = {
 	carousel: false,
 	animateAvatars: true,
 	animations: true,
+	pullNextUnread: true,
 }
 
 export default function Settings({
@@ -32,6 +34,7 @@ export default function Settings({
 		carousel = false,
 		animateAvatars = true,
 		animations = true,
+		pullNextUnread = true,
 		preferFriendNicknames = true,
 	} = jsonStorage.use() ?? DefaultSettings
 	return (
@@ -63,6 +66,15 @@ export default function Settings({
 					/>
 				</Design.TableRowGroup>
 				<Design.TableRowGroup title="Gestures">
+					<Design.TableSwitchRow
+						label="Pull for next unread channel"
+						subLabel="At the bottom of a chat, keep pulling up: it slides to the next unread channel in this server. With none left, the same pull goes back to the channel you were in before."
+						value={pullNextUnread}
+						onValueChange={value => {
+							pullPrefs.on = value
+							jsonStorage.set({ pullNextUnread: value })
+						}}
+					/>
 					<Design.TableSwitchRow
 						label="Soft dock gestures"
 						subLabel="Lift the dock with gentle resistance, bounce back on short pulls, and expand on release after a longer pull. Requires reload."

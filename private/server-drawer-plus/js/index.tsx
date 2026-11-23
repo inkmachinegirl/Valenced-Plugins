@@ -11,6 +11,7 @@ import * as Native from 'react-native'
 import { computeGuildDockSpecs } from './data'
 import { overlay, patchChatSwipe } from './chatswipe'
 import { motionPrefs } from './prefs'
+import { patchUnreadPull, pullPrefs } from './unreadpull'
 import { patchFocusMenu } from './focus'
 import SettingsComponent, { DefaultSettings } from './settings'
 import { createServerDrawer, DOCK_REST_OFFSET } from './surface'
@@ -47,6 +48,9 @@ export default plugin<{ jsonStorage: t.ServerDrawerPreferences }>({
 		patchFocusMenu(cleanup)
 		// Fork (Server Drawer+): swipe up on the chat bar opens the drawer.
 		patchChatSwipe(cleanup)
+		// Satou: pull at the bottom of a chat for the next unread channel.
+		pullPrefs.on = (jsonStorage as any).cache?.pullNextUnread !== false
+		patchUnreadPull(cleanup)
 		const abort = new AbortController()
 		cleanup(() => abort.abort())
 		cleanup(

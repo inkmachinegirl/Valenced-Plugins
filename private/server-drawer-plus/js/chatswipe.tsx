@@ -25,6 +25,7 @@ import { after } from '@valenced/patcher'
 import React from 'react'
 import * as Native from 'react-native'
 import type * as t from './types'
+import { drawerTouch } from './unreadpull'
 
 /** Upward and mostly vertical: a light swipe is enough (about 16 px), or a tiny quick flick. */
 export const isSwipeUp = (dx: number, dy: number, vy = 0) =>
@@ -104,7 +105,11 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 				.runOnJS(true)
 				.onBegin(() => {
 					fired = false
+					drawerTouch.active = true
 					swipeStatus.touches++
+				})
+				.onFinalize(() => {
+					drawerTouch.active = false
 				})
 				.onStart(() => {
 					swipeStatus.swipes++

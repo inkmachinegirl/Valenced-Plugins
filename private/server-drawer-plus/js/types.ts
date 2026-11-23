@@ -60,6 +60,7 @@ export interface ServerDrawerPreferences {
 	readonly carousel: boolean
 	readonly animateAvatars: boolean
 	readonly animations?: boolean
+	readonly pullNextUnread?: boolean
 }
 
 export interface DirectMessage extends BadgeState {

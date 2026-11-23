@@ -63,7 +63,11 @@ export function filteredItems(
 		if (item.kind !== 'folder') return matches(item) ? [item] : []
 		const children = item.children.filter(matches)
 
-		return search ? children : children.length ? [{ ...item, children }] : []
+		if (search) return children
+		// Satou: in Unreads, a folder with one unread server shows that server itself (it stays in
+		// the folder in Discord; only the drawer's tile changes).
+		if (filter === 'unread' && children.length === 1) return children
+		return children.length ? [{ ...item, children }] : []
 	})
 }
 // Discord's move action inserts before its target; the drawer previews the target's slot.
