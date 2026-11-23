@@ -10,6 +10,7 @@ import React from 'react'
 import * as Native from 'react-native'
 import { computeGuildDockSpecs } from './data'
 import { overlay, patchChatSwipe } from './chatswipe'
+import { motionPrefs } from './prefs'
 import { patchFocusMenu } from './focus'
 import SettingsComponent, { DefaultSettings } from './settings'
 import { createServerDrawer, DOCK_REST_OFFSET } from './surface'
@@ -42,6 +43,7 @@ export default plugin<{ jsonStorage: t.ServerDrawerPreferences }>({
 			return
 		}
 		reportError = error => plugin.reportError(error)
+		motionPrefs.animate = (jsonStorage as any).cache?.animations !== false
 		patchFocusMenu(cleanup)
 		// Fork (Server Drawer+): swipe up on the chat bar opens the drawer.
 		patchChatSwipe(cleanup)

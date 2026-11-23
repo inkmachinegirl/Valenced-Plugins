@@ -10,6 +10,7 @@ interface Settings {
 	button: boolean
 	tapSends: boolean
 	keepOpen: boolean
+	animations: boolean
 	size: 'small' | 'medium' | 'large'
 	recent: string[]
 }
@@ -17,6 +18,7 @@ const DEFAULTS: Settings = {
 	button: true,
 	tapSends: false,
 	keepOpen: false,
+	animations: true,
 	size: 'small',
 	recent: [],
 }
@@ -33,6 +35,7 @@ const options: PickerOptions = {
 		}),
 	tapSends: () => settings().tapSends,
 	keepOpen: () => settings().keepOpen,
+	animations: () => settings().animations !== false,
 	size: () => settings().size,
 }
 
@@ -69,6 +72,12 @@ function SettingsPage() {
 						subLabel="To pick several in a row"
 						value={s.keepOpen}
 						onValueChange={(keepOpen: boolean) => set({ keepOpen })}
+					/>
+					<TableSwitchRow
+						label="Animations"
+						subLabel="The picker slides up. Turn off for less load: it just appears."
+						value={s.animations !== false}
+						onValueChange={(animations: boolean) => set({ animations })}
 					/>
 					<TableRow
 						label="Picker size"

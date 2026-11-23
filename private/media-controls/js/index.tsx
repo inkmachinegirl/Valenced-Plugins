@@ -12,11 +12,13 @@ interface Settings {
 	dock: boolean
 	/** The docked player is swiped down behind the bar. */
 	tucked: boolean
+	/** The docked card springs open and shut. */
+	animations: boolean
 }
 
 type Api = PluginApi<{ jsonStorage: Settings }>
 
-const DEFAULTS: Settings = { dock: true, tucked: false }
+const DEFAULTS: Settings = { dock: true, tucked: false, animations: true }
 
 let readSettings: () => Settings = () => DEFAULTS
 
@@ -117,6 +119,14 @@ function SettingsPage({ api }: { api: Api }) {
 							api.jsonStorage.set({ ...settings, dock }, true)
 						}
 					/>
+					<TableSwitchRow
+						label="Animations"
+						subLabel="The card springs open and shut. Turn off for less load: it jumps instead."
+						value={settings.animations !== false}
+						onValueChange={(animations: boolean) =>
+							api.jsonStorage.set({ ...settings, animations }, true)
+						}
+					/>
 				</TableRowGroup>
 
 				<Diagnostics />
@@ -135,6 +145,7 @@ export default plugin<{ jsonStorage: Settings }>({
 				{
 					enabled: () => readSettings().dock,
 					tucked: () => readSettings().tucked,
+					animations: () => readSettings().animations !== false,
 					setTucked: tucked =>
 						jsonStorage.set({ ...readSettings(), tucked }, true),
 				},

@@ -1,3 +1,4 @@
+import { motionPrefs } from './prefs'
 import { Stores } from '@valenced/discord/flux'
 import { lookupModule } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
@@ -32,6 +33,9 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 	const subtleSpring = springs?.SUBTLE_SPRING
 	const accessibility =
 		Stores.AccessibilityStore as import('@valenced/discord/types').DiscordModules.Flux.Store<t.DrawerAccessibilityStore>
+	// Satou: the plugin's own Animations switch (settings) skips animations like Android's
+	// reduce-motion setting does.
+	const reducedMotion = () => !motionPrefs.animate || accessibility.useReducedMotion
 	if (!panels)
 		throw new Error('Server Drawer: native panel configuration is unavailable')
 	const config =
@@ -72,7 +76,7 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 			? config.nonSwipeSidePanelOpen
 			: config.nonSwipeSidePanelClose
 
-		if (accessibility.useReducedMotion) {
+		if (reducedMotion()) {
 			value.stopAnimation()
 			value.setValue(next)
 			complete?.({ finished: true })
@@ -101,7 +105,7 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 
 	const spring = (value: Animated.Value, next: number, velocity = 0) => {
 		value.stopAnimation()
-		if (accessibility.useReducedMotion) value.setValue(next)
+		if (reducedMotion()) value.setValue(next)
 		else
 			Animated.spring(value, {
 				...subtleSpring,
@@ -164,7 +168,7 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 				const complete = ({ finished }: Animated.EndResult) => {
 					if (finished) setOpeningFrom(next === 0 ? 0 : undefined)
 				}
-				if (accessibility.useReducedMotion) {
+				if (reducedMotion()) {
 					value.setValue(next)
 					complete({ finished: true })
 				} else {
@@ -494,9 +498,9 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 			position.stopAnimation(value => {
 				if (generation.current !== token) return
 				// Project the existing momentum, then decelerate directly into a full slot.
-				const travel = accessibility.useReducedMotion ? 0 : velocity / 4
+				const travel = reducedMotion() ? 0 : velocity / 4
 				const toValue = Math.round((value + travel) / step) * step
-				if (accessibility.useReducedMotion) position.setValue(toValue)
+				if (reducedMotion()) position.setValue(toValue)
 				else
 					Animated.timing(position, {
 						toValue,

@@ -7,6 +7,9 @@ import { Image } from 'react-native'
  * component Discord plays nameplates and decorations with), falling back to the still picture
  * when there's no animation or it can't be played.
  */
+/** The Animated previews setting: off, items show their still picture. */
+export const animPrefs = { on: true }
+
 let fast: any
 function fastImage(): any {
 	if (fast !== undefined) return fast
@@ -35,7 +38,7 @@ export function AnimImage({
 }) {
 	const [failed, setFailed] = useState(false)
 	const Fast = fastImage()
-	if (animated && !failed && Fast)
+	if (animated && animPrefs.on && !failed && Fast)
 		return (
 			<Fast
 				source={{ uri: animated }}

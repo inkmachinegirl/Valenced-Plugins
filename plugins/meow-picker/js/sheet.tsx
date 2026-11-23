@@ -20,6 +20,8 @@ import { TABS } from './meows'
 const KEY = 'meow-picker'
 
 export interface PickerOptions {
+	/** Whether the sheet slides up; off, it just appears. */
+	animations?: () => boolean
 	recent: () => string[]
 	remember: (text: string) => void
 	tapSends: () => boolean
@@ -228,12 +230,15 @@ export function PickerHost() {
 	const open = !!openWith && hosts[hosts.length - 1] === me.current
 	useEffect(() => {
 		if (!open) return
-		slide.setValue(0)
-		Animated.timing(slide, {
-			toValue: 1,
-			duration: 180,
-			useNativeDriver: true,
-		}).start()
+		if (openWith?.animations?.() === false) slide.setValue(1)
+		else {
+			slide.setValue(0)
+			Animated.timing(slide, {
+				toValue: 1,
+				duration: 180,
+				useNativeDriver: true,
+			}).start()
+		}
 		const show = Keyboard.addListener(
 			Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
 			(e: any) => setKeyboard(e?.endCoordinates?.height ?? 0),

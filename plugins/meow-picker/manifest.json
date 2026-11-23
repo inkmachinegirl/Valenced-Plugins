@@ -4,9 +4,11 @@
 	"name": "Meow Picker",
 	"description": "A cat button by the emoji button in chat. It opens a picker like the emoji one, full of meows, mrrps, purrs, hisses, cat actions and cat kaomoji. Tap one to add it to your message, long-press to send it.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
-	"contributors": ["bleelblep (chat box handle, GPL-3.0)"],
+	"contributors": [
+		"bleelblep (chat box handle, GPL-3.0)"
+	],
 	"icon": "ChatIcon",
-	"version": "1.3.0",
+	"version": "1.4.0",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

@@ -5,7 +5,7 @@
 	"description": "Show and control what any app is playing (YouTube, any music or video player) from a player above the bottom bar. Needs the Media Bridge app for song details; media keys work without it. Android only.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "MusicIcon",
-	"version": "1.0.9",
+	"version": "1.0.10",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

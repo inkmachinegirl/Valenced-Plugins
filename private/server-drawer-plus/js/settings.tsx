@@ -5,6 +5,7 @@ import type { PluginSettingsComponent } from '@valenced/plugins/types'
 import type { ComponentProps } from 'react'
 import type { ServerDrawerPreferences } from './types'
 import { swipeStatus } from './chatswipe'
+import { motionPrefs } from './prefs'
 
 export const DefaultSettings: ServerDrawerPreferences = {
 	dmOrder: [],
@@ -16,6 +17,7 @@ export const DefaultSettings: ServerDrawerPreferences = {
 	haptics: false,
 	carousel: false,
 	animateAvatars: true,
+	animations: true,
 }
 
 export default function Settings({
@@ -29,12 +31,22 @@ export default function Settings({
 		haptics = false,
 		carousel = false,
 		animateAvatars = true,
+		animations = true,
 		preferFriendNicknames = true,
 	} = jsonStorage.use() ?? DefaultSettings
 	return (
 		<ScrollView style={{ flex: 1 }}>
 			<Page>
 				<Design.TableRowGroup title="Appearance">
+					<Design.TableSwitchRow
+						label="Animations"
+						subLabel="Slide, spring and fold animations in the drawer and dock. Turn off for less load: everything jumps straight to where it goes."
+						value={animations}
+						onValueChange={value => {
+							motionPrefs.animate = value
+							jsonStorage.set({ animations: value })
+						}}
+					/>
 					<Design.TableSwitchRow
 						label="Animate drawer avatars"
 						subLabel="Play animated server icons and DM avatars when the drawer is idle. Turn off for smoother performance."

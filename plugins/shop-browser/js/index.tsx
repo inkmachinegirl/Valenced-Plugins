@@ -1,3 +1,4 @@
+import { animPrefs } from './anim'
 import { AlertActionCreators } from '@valenced/discord/actions'
 import { Tokens } from '@valenced/discord/common/tokens'
 import { Design } from '@valenced/discord/design'
@@ -325,6 +326,8 @@ function Card({
 interface Settings {
 	/** Categories the user marked as collab (true) or not (false), overriding detection. */
 	collabMarks: Record<string, boolean>
+	/** Animated previews (off: still pictures). */
+	animations?: boolean
 	/** Grid columns: 3, 4 or 5. */
 	columns?: 3 | 4 | 5
 	/** Discord's Shop → Shop All opens the browser (older setting). */
@@ -1351,6 +1354,7 @@ export default plugin<{ jsonStorage: Settings }>({
 	},
 	start({ cleanup, jsonStorage }) {
 		storage = jsonStorage as unknown as Storage
+		animPrefs.on = (jsonStorage as any).cache?.animations !== false
 		setRouteStore(
 			() => (storage as any)?.cache?.previewRoute2,
 			previewRoute2 =>
@@ -1387,6 +1391,18 @@ function SettingsPage() {
 							true,
 						)
 					}
+				/>
+				<TableSwitchRow
+					label="Animated previews"
+					subLabel="Decorations, effects and nameplates play their animation in the grid and the preview. Turn off for less load: they show a still picture."
+					value={stored?.animations !== false}
+					onValueChange={(on: boolean) => {
+						animPrefs.on = on
+						storage?.set(
+							{ collabMarks: {}, ...stored, animations: on } as Settings,
+							true,
+						)
+					}}
 				/>
 			</TableRowGroup>
 			<Text

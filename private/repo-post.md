@@ -27,13 +27,13 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Hide Stream Previews** `1.0.1`: hide the floating call preview after leaving the call screen
 • **Ignore Apps** `1.0.4`: hide messages from bots Discord won't let you block, like MEE6
 • **Ignore by Role** `1.1.0`: type a server and a role, then pick who with that role to ignore
-• **Meow Picker** `1.3.0`: a cat button with a picker full of meows and cat kaomoji
+• **Meow Picker** `1.4.0`: a cat button with a picker full of meows and cat kaomoji
 • **Never Talked** `1.0.1`: mark people in the member list who never talked in that server
 • **No Blackout** `1.0.2`: stop the screen going black in calls when the proximity sensor is covered
 • **Profile Widgets** `1.2.1`: edit your game widgets right on your profile, with comments and tags
 • **Quick Access** `1.4.4`: reload, Friends, Plugins and Performance Monitor buttons on the YouBar, each with its own switch
 • **Quick Folders** `1.2.0`: long-press a server to move it to a folder, no dragging
-• **Shop Browser** `1.12.0`: the Shop like on desktop, with Browse, sorting and filters
+• **Shop Browser** `1.13.0`: the Shop like on desktop, with Browse, sorting and filters
 • **Smaller Media** `1.2.2`: make images, GIFs and videos in chat 30-50% smaller, still full size when tapped
 • **Spectators** `1.0.2`: see who's watching a stream, with join/leave notices and a notification with the count while you stream
 • **Stream Tools** `1.0.2`: auto-watch streams, a volume and switch bar, and a clean view

@@ -94,6 +94,8 @@ export interface DockOptions {
 	enabled(): boolean
 	tucked(): boolean
 	setTucked(tucked: boolean): void
+	/** Whether the card springs open and shut; off, it jumps. */
+	animations(): boolean
 }
 
 /** What the dock is doing, for the Diagnostics section. */
@@ -298,8 +300,14 @@ function DockLayer({
 		tuckedRef.current = next
 		setTuckedState(next)
 		options.setTucked(next)
+		const toValue = next ? limits.current.closed : limits.current.open
+		if (!options.animations()) {
+			height.stopAnimation()
+			height.setValue(toValue)
+			return
+		}
 		Animated.spring(height, {
-			toValue: next ? limits.current.closed : limits.current.open,
+			toValue,
 			// Height can't use the native driver; the card is small, so this stays smooth.
 			useNativeDriver: false,
 			bounciness: 3,
