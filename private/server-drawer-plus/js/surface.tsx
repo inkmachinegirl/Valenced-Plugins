@@ -45,7 +45,6 @@ import {
 	orderedDms,
 } from './data'
 import type * as t from './types'
-import { folderMuteItem } from './foldermute'
 
 export const DOCK_REST_OFFSET = 6
 const VIEW_OPTIONS = [
@@ -872,20 +871,15 @@ export function createServerDrawer(
 		let getItems: GetItems | undefined
 		const listeners = new Set<() => void>()
 		if (folder) {
-			getItems = lookupModule(
+			// Read live on every call, so plugins that add folder items (Folder Mute) show up here too.
+			const menuModule = lookupModule(
 				withProps<{ getGuildFolderMenuItems: GetItems }>(
 					'getGuildFolderMenuItems',
 				).and(withStoreDependencies('SortedGuildStore')),
-			)[0]?.getGuildFolderMenuItems
-			if (typeof getItems !== 'function')
+			)[0]
+			if (typeof menuModule?.getGuildFolderMenuItems !== 'function')
 				throw new Error('ServerDrawer: native folder menu is unavailable')
-			// Satou: a third item, Mute folder / Unmute folder.
-			const native = getItems
-			getItems = id => {
-				const items = native(id)
-				const mute = folderMuteItem(Number(id))
-				return mute ? [...items, mute] : items
-			}
+			getItems = id => menuModule.getGuildFolderMenuItems(id)
 		} else {
 			// Discord loads the guild menu builder with its native GuildsBar, which can render after the drawer.
 			const unsubscribe = getModules(

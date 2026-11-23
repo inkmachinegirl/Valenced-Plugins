@@ -51,6 +51,11 @@ export function overlayOpened() {
 	opened = true
 }
 
+/** Lets other plugins (Folder Mute) close the swipe-up drawer before opening a sheet. */
+;(globalThis as any)[Symbol.for('dev.ketsuyumi.server-drawer-plus.overlay')] = {
+	close: () => showOverlay(false),
+}
+
 export function showOverlay(on: boolean) {
 	if (shown === on) return
 	shown = on

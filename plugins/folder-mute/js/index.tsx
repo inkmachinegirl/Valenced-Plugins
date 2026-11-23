@@ -1,8 +1,12 @@
 /**
- * Satou: a third option when holding a folder, "Mute folder" / "Unmute folder", next to Discord's
- * own two. It opens a sheet with the same choices as muting a server (15 minutes … until you turn
- * it back on) and applies it to every server in the folder, through Discord's own
+ * Folder Mute: a third option when holding a server folder, "Mute folder" / "Unmute folder", next
+ * to Discord's own two. It opens a sheet with the same choices as muting a server (15 minutes …
+ * until you turn it back on) and applies it to every server in the folder, through Discord's own
  * updateGuildNotificationSettings, one server at a time.
+ *
+ * Discord builds the folder menu with getGuildFolderMenuItems (modules/guilds_bar/native/
+ * GuildsBarFolderMenuItems.tsx), read off the module each time a menu opens: in the server list,
+ * its long-press gesture, and other plugins' drawers (Server Drawer+). The item is added there.
  */
 
 import { ActionSheetActionCreators, ToastActionCreators } from '@valenced/discord/actions'
@@ -11,8 +15,13 @@ import { Stores } from '@valenced/discord/flux'
 import { lookupModule } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
 import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
-import { showOverlay } from './chatswipe'
-import type * as t from './types'
+import { getModuleWithImportedPath } from '@valenced/discord/utils/modules/finders'
+import { instead } from '@valenced/patcher'
+
+interface MenuItem {
+	action(): unknown
+	label: string
+}
 
 const S = Stores as any
 
@@ -111,7 +120,7 @@ const icon = (name: string) => {
 }
 
 /** The extra folder menu item. */
-export function folderMuteItem(id: number): t.MenuItem | undefined {
+function folderMuteItem(id: number): MenuItem | undefined {
 	const ids = folderGuilds(id)
 	if (!ids.length) return undefined
 	const muted = allMuted(ids)
@@ -121,13 +130,38 @@ export function folderMuteItem(id: number): t.MenuItem | undefined {
 		...(IconComponent ? { IconComponent } : {}),
 		label: muted ? 'Unmute folder' : 'Mute folder',
 		action() {
-			// The swipe-up drawer sits above sheets; close it so the sheet is visible.
-			showOverlay(false)
+			// Server Drawer+'s swipe-up drawer sits above sheets; close it so the sheet is visible.
+			try {
+				;(globalThis as any)[Symbol.for('dev.ketsuyumi.server-drawer-plus.overlay')]?.close?.()
+			} catch {}
 			ActionSheetActionCreators.openLazy(
 				Promise.resolve({ default: FolderMuteSheet as any }),
 				'sdp-folder-mute',
 				{ folderId: id, name },
 			)
 		},
-	} as t.MenuItem
+	} as MenuItem
 }
+
+const MENU = 'modules/guilds_bar/native/GuildsBarFolderMenuItems.tsx'
+
+export default plugin({
+	start({ cleanup }) {
+		cleanup(
+			getModuleWithImportedPath<any>(MENU, mod => {
+				if (typeof mod?.getGuildFolderMenuItems !== 'function') return
+				cleanup(
+					instead(mod, 'getGuildFolderMenuItems', function (this: unknown, args: any[], orig: (...a: any[]) => any) {
+						const items = Reflect.apply(orig, this, args)
+						try {
+							const mute = folderMuteItem(Number(args[0]))
+							return mute && Array.isArray(items) ? [...items, mute] : items
+						} catch {
+							return items
+						}
+					}),
+				)
+			}),
+		)
+	},
+})

@@ -17,6 +17,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Emoji Sorter** `1.1.0`: sort the emoji picker's servers A to Z, by most emojis or most animated, and hide the ones you can't use
 • **Embed Playback** `1.4.1`: play YouTube embeds and links over the chat or in a floating window that keeps playing while you scroll
 • **Floating Browser** `1.7.1`: a browser that floats over Discord, with bookmarks and extensions
+• **Folder Mute** `1.0.0`: hold a folder to mute or unmute every server in it, for a set time or until you turn it back on
 • **Forum Grid** `1.1.3`: forum posts as a grid with images, filters and more sorting
 • **Friends Export** `1.0.0`: export your friends list as text, CSV or JSON with `/friendslist`, copy it or save it to a file
 • **Hide Blocked Typing** `1.0.0`: never see blocked or ignored people typing

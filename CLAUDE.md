@@ -26,7 +26,7 @@ Private plugins (folder → name):
 | `last-online-plus` | Last Online Tracker+ | Fork of k1ng_op's Last Online Tracker (GPL-3.0) |
 | `favorite-anything-plus` | Favorite Anything+ | Fork of TheUnrealZaka's Favorite Anything (MIT) |
 | `no-suggestions-plus` | No Suggestions+ | Fork of MarkLong0467's No Suggestions (GPL-3.0) |
-| `server-drawer-plus` | Server Drawer+ | Fork of Server Drawer (kmmiio99o/Rosie/Benjii, GPL-3.0, from Accentaro/Valenced-Plugins): swipe up on the chat bar opens the drawer; pull at the bottom of a chat for the next unread channel; Animations switch; lone unread server shown outside its folder in Unreads; Mute folder in the folder menu |
+| `server-drawer-plus` | Server Drawer+ | Fork of Server Drawer (kmmiio99o/Rosie/Benjii, GPL-3.0, from Accentaro/Valenced-Plugins): swipe up on the chat bar opens the drawer; pull at the bottom of a chat for the next unread channel; Animations switch; lone unread server shown outside its folder in Unreads; folder menu read live (Folder Mute adds its item there) |
 | `sekai-stickers` | Sekai Stickers | Fork of bleelblep's Sekai Stickers (CC0; sticker list MIT from TheOriginalAyaka): Sekai tab in the expression picker, drawn on a canvas in a hidden WebView instead of Kotlin |
 | `hide-user-content-plus` | Hide User Content+ | Fork of horndogcop's Hide User Content (**no licence**: forked at the user's explicit request, personal use only, never publish): fixes the user-sheet crash |
 | `chatlock-plus` | Chat Lock+ | Fork of coder.gg's Chat Lock (GPL-3.0, il1ll/ValencedPlugins): no hook crash when started late. Ships the original's prebuilt `plugin.jar` (the pack script includes it) |
