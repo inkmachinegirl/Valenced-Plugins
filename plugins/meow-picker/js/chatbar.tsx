@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { View } from 'react-native'
 import { findModule } from './find'
 import { PickerHost } from './sheet'
+import { iconColor } from './color'
 
 /**
  * The cat button in the chat bar, right before the emoji button: `after` on
@@ -22,7 +23,13 @@ let ActionButton: any
 export const chatbarStatus = { hooked: false }
 
 /** A cat head drawn in the bar's icon colour: outlined face, two ears, two eyes. */
-function CatIcon({ color = '#b5bac1', size }: { color?: string; size?: any }) {
+function CatIcon({
+	color = iconColor(),
+	size,
+}: {
+	color?: string
+	size?: any
+}) {
 	const s =
 		typeof size === 'number'
 			? size / 24

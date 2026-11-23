@@ -29,7 +29,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Launch Pad Reduced Motion** `1.0.0`: Launch Pad opens and closes without animations, the rest of Discord keeps them
 • **Ignore Apps** `1.0.4`: hide messages from bots Discord won't let you block, like MEE6
 • **Ignore by Role** `1.1.0`: type a server and a role, then pick who with that role to ignore
-• **Meow Picker** `1.4.0`: a cat button with a picker full of meows and cat kaomoji
+• **Meow Picker** `1.5.0`: a cat button with a picker full of meows and cat kaomoji
 • **Never Talked** `1.0.1`: mark people in the member list who never talked in that server
 • **No Blackout** `1.0.2`: stop the screen going black in calls when the proximity sensor is covered
 • **Plugin Sort** `1.0.0`: sort plugins by resource use, stutters, calls, startup or hooks, and filter the heavy or unused ones

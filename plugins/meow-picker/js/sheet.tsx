@@ -13,7 +13,7 @@ import {
 	ScrollView,
 	View,
 } from 'react-native'
-import { textColor } from './color'
+import { palette } from './color'
 import { addToMessage, send } from './input'
 import { TABS } from './meows'
 
@@ -45,11 +45,11 @@ function pick(text: string, sendNow: boolean, opts: PickerOptions) {
 function Chip({
 	text,
 	opts,
-	color,
+	colors,
 }: {
 	text: string
 	opts: PickerOptions
-	color: string
+	colors: ReturnType<typeof palette>
 }) {
 	const { Text } = Design as any
 	return (
@@ -60,17 +60,19 @@ function Chip({
 			accessibilityRole="button"
 			accessibilityLabel={text}
 			style={({ pressed }: { pressed: boolean }) => ({
-				paddingHorizontal: 8,
-				paddingVertical: 4,
-				margin: 2,
-				borderRadius: 14,
+				paddingHorizontal: 7,
+				paddingVertical: 3,
+				margin: 1.5,
+				borderRadius: 10,
 				maxWidth: '100%',
-				backgroundColor: pressed
-					? 'rgba(255,255,255,0.16)'
-					: 'rgba(255,255,255,0.06)',
+				backgroundColor: pressed ? colors.chipPressed : colors.chip,
 			})}
 		>
-			<Text variant="text-xs/medium" style={{ color }} numberOfLines={2}>
+			<Text
+				variant="text-xs/medium"
+				style={{ color: colors.text }}
+				numberOfLines={2}
+			>
 				{text}
 			</Text>
 		</Pressable>
@@ -91,7 +93,7 @@ function MeowPanel({ opts }: { opts: PickerOptions }) {
 	)
 	const [tab, setTab] = useState(0)
 	const [query, setQuery] = useState('')
-	const color = textColor()
+	const colors = palette()
 	const q = query.trim().toLowerCase()
 	const shown = q
 		? [
@@ -104,7 +106,7 @@ function MeowPanel({ opts }: { opts: PickerOptions }) {
 		: tabs[tab][2]
 	return (
 		<View style={{ flex: 1 }}>
-			<View style={{ paddingHorizontal: 8, paddingTop: 2 }}>
+			<View style={{ paddingHorizontal: 6, paddingTop: 0 }}>
 				{TextInput ? (
 					<TextInput
 						placeholder={
@@ -121,7 +123,7 @@ function MeowPanel({ opts }: { opts: PickerOptions }) {
 				<ScrollView
 					horizontal
 					showsHorizontalScrollIndicator={false}
-					style={{ marginTop: 6, flexGrow: 0 }}
+					style={{ marginTop: 4, flexGrow: 0 }}
 					keyboardShouldPersistTaps="handled"
 				>
 					{tabs.map(([name, icon], i) => {
@@ -137,18 +139,19 @@ function MeowPanel({ opts }: { opts: PickerOptions }) {
 								accessibilityLabel={name}
 								accessibilityState={{ selected: on }}
 								style={{
-									width: 32,
-									height: 28,
-									margin: 2,
-									borderRadius: 10,
+									width: 30,
+									height: 26,
+									margin: 1.5,
+									borderRadius: 8,
 									alignItems: 'center',
 									justifyContent: 'center',
-									backgroundColor: on
-										? 'rgba(88,101,242,0.35)'
-										: 'rgba(255,255,255,0.05)',
+									backgroundColor: on ? colors.tabOn : colors.chip,
 								}}
 							>
-								<Text variant="text-sm/bold" style={{ color }}>
+								<Text
+									variant="text-sm/bold"
+									style={{ color: on ? colors.tabOnText : colors.text }}
+								>
 									{icon}
 								</Text>
 							</Pressable>
@@ -161,13 +164,13 @@ function MeowPanel({ opts }: { opts: PickerOptions }) {
 				contentContainerStyle={{
 					flexDirection: 'row',
 					flexWrap: 'wrap',
-					padding: 6,
-					paddingBottom: 32,
+					padding: 4,
+					paddingBottom: 24,
 				}}
 				keyboardShouldPersistTaps="handled"
 			>
 				{shown.length ? (
-					shown.map(m => <Chip key={m} text={m} opts={opts} color={color} />)
+					shown.map(m => <Chip key={m} text={m} opts={opts} colors={colors} />)
 				) : (
 					<Text
 						variant="text-sm/medium"
@@ -256,8 +259,9 @@ export function PickerHost() {
 	if (!open || !openWith) return null
 	const screen = Dimensions.get('window').height
 	const share =
-		{ small: 0.38, medium: 0.5, large: 0.62 }[openWith.size()] ?? 0.38
+		{ small: 0.34, medium: 0.46, large: 0.6 }[openWith.size()] ?? 0.34
 	const height = Math.min(Math.round(screen * share), screen - keyboard - 80)
+	const colors = palette()
 	return (
 		<Modal
 			visible
@@ -292,17 +296,17 @@ export function PickerHost() {
 				<AnimatedView
 					style={{
 						position: 'absolute',
-						left: 8,
-						right: 8,
-						bottom: keyboard ? keyboard + 4 : 12,
+						left: 6,
+						right: 6,
+						bottom: keyboard ? keyboard + 4 : 8,
 						height,
-						paddingTop: 4,
-						paddingBottom: 4,
-						borderRadius: 18,
+						paddingTop: 2,
+						paddingBottom: 2,
+						borderRadius: 16,
 						overflow: 'hidden',
-						backgroundColor: panelColor(),
+						backgroundColor: colors.panel,
 						borderWidth: 1,
-						borderColor: 'rgba(255,255,255,0.08)',
+						borderColor: colors.border,
 						transform: [
 							{
 								translateY: slide.interpolate({
@@ -316,14 +320,14 @@ export function PickerHost() {
 					<Pressable
 						onPress={closePicker}
 						accessibilityLabel="Close"
-						style={{ alignItems: 'center', paddingBottom: 6 }}
+						style={{ alignItems: 'center', paddingTop: 2, paddingBottom: 4 }}
 					>
 						<View
 							style={{
-								width: 40,
-								height: 5,
-								borderRadius: 3,
-								backgroundColor: 'rgba(255,255,255,0.3)',
+								width: 32,
+								height: 4,
+								borderRadius: 2,
+								backgroundColor: colors.handle,
 							}}
 						/>
 					</Pressable>
@@ -332,25 +336,6 @@ export function PickerHost() {
 			</View>
 		</Modal>
 	)
-}
-
-/** The theme's sheet colour, so it matches Discord (a dark fallback). */
-function panelColor(): string {
-	try {
-		const T = (Tokens as any).default
-		const theme = (Stores as any).ThemeStore?.theme
-		for (const name of [
-			'BACKGROUND_FLOATING',
-			'BG_SURFACE_OVERLAY',
-			'BACKGROUND_SECONDARY',
-		]) {
-			const token = T?.colors?.[name]
-			if (!token) continue
-			const v = T.internal.resolveSemanticColor(theme, token)
-			if (typeof v === 'string' && v) return v
-		}
-	} catch {}
-	return '#2b2d31'
 }
 
 export function openPicker(opts: PickerOptions) {
