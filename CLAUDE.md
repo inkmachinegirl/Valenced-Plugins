@@ -31,6 +31,7 @@ Private plugins (folder → name):
 | `hide-user-content-plus` | Hide User Content+ | Fork of horndogcop's Hide User Content (**no licence**: forked at the user's explicit request, personal use only, never publish): fixes the user-sheet crash |
 | `chatlock-plus` | Chat Lock+ | Fork of coder.gg's Chat Lock (GPL-3.0, il1ll/ValencedPlugins): no hook crash when started late. Ships the original's prebuilt `plugin.jar` (the pack script includes it) |
 | `floating-browser` | Floating Browser | Floating browser window over Discord (moved from public); extensions, ad blocking, user scripts |
+| `plugin-exporter` | Plugin Exporter | Back up installed plugins (repo, version, on/off, settings) to a file or clipboard and restore them |
 | `better-channel-list` | Better Channel List+ | |
 | `fake-nickname` | Fake Nickname+ | |
 | `ghost-log` | Ghost Log+ | |
