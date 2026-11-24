@@ -30,6 +30,7 @@ Private plugins (folder → name):
 | `sekai-stickers` | Sekai Stickers | Fork of bleelblep's Sekai Stickers (CC0; sticker list MIT from TheOriginalAyaka): Sekai tab in the expression picker, drawn on a canvas in a hidden WebView instead of Kotlin |
 | `hide-user-content-plus` | Hide User Content+ | Fork of horndogcop's Hide User Content (**no licence**: forked at the user's explicit request, personal use only, never publish): fixes the user-sheet crash |
 | `chatlock-plus` | Chat Lock+ | Fork of coder.gg's Chat Lock (GPL-3.0, il1ll/ValencedPlugins): no hook crash when started late. Ships the original's prebuilt `plugin.jar` (the pack script includes it) |
+| `floating-browser` | Floating Browser | Floating browser window over Discord (moved from public); extensions, ad blocking, user scripts |
 | `better-channel-list` | Better Channel List+ | |
 | `fake-nickname` | Fake Nickname+ | |
 | `ghost-log` | Ghost Log+ | |
