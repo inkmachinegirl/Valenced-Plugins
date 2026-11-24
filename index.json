@@ -2444,6 +2444,30 @@
         }
       }
     },
+    "dev.ketsuyumi.sort-friend-requests": {
+      "name": "Sort Friend Requests",
+      "description": "Sorts friend requests (received and sent) by the date they were sent, newest or oldest first, instead of by account age.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "FriendsIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.sort-friend-requests@1.0.0.zip",
+          "sha256": "563804d50ca0f4e3301cf39f5f458c28aeb12a81bb2a5b24e17abcf5f66f395b",
+          "size": 1548,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.spectators": {
       "name": "Spectators",
       "description": "See who is watching a stream, yours or someone else's, like on PC. Optional notices when people start or stop watching, and a notification with the count while you stream, also outside the app.",
