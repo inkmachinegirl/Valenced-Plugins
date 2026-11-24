@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.sort-friend-requests",
+	"name": "Sort Friend Requests",
+	"description": "Sorts friend requests (received and sent) by the date they were sent, newest or oldest first, instead of by account age.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "FriendsIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

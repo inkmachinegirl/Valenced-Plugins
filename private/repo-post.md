@@ -39,6 +39,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Quick Folders** `1.2.0`: long-press a server to move it to a folder, no dragging
 • **Shop Browser** `1.13.1`: the Shop like on desktop, with Browse, sorting and filters
 • **Smaller Media** `1.2.2`: make images, GIFs and videos in chat 30-50% smaller, still full size when tapped
+• **Sort Friend Requests** `1.0.0`: friend requests by the date they were sent, newest or oldest first
 • **Spectators** `1.0.2`: see who's watching a stream, with join/leave notices and a notification with the count while you stream
 • **Stream Tools** `1.0.2`: auto-watch streams, a volume and switch bar, and a clean view
 • **Unfollow Category** `1.0.0`: untick every channel in a category at once in Channels & Roles
