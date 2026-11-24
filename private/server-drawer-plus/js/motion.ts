@@ -122,6 +122,10 @@ export function createDrawerMotion(Gesture: t.NativeGestureModule['Gesture']) {
 		const settle = (value: number, velocity = 0) => {
 			target.current = value
 			animate(translate, value, velocity)
+			// Satou: with animations off the value jumps with setValue, which on a value the native
+			// driver has used doesn't reach this listener; without this the drawer kept thinking it was
+			// where it started (stuck fully open: swipes, taps outside and picks did nothing).
+			if (reducedMotion()) position.current = value
 		}
 
 		useEffect(() => {
