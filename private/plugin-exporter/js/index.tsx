@@ -133,6 +133,23 @@ async function pickFile(): Promise<string> {
 	return String(await files.readAsset(uri, 'utf8'))
 }
 
+/**
+ * Android drops clipboard text that is too big (about 1 MB per transfer) without an error, so the
+ * copy is read back to check it really landed.
+ */
+async function copy(text: string, what: string) {
+	const kb = Math.round(text.length / 1024)
+	Clipboard.setString(text)
+	let back = ''
+	try {
+		back = String((await Clipboard.getString()) ?? '')
+	} catch {}
+	if (back.length === text.length) return toast(`${what} copied (${kb} KB)`)
+	throw new Error(
+		`${what} is ${kb} KB, too big for Android's clipboard. Use Save backup file, or Copy plugin list only`,
+	)
+}
+
 function parse(text: string): Backup {
 	const b = JSON.parse(text)
 	if (b?.format !== 'plugin-exporter' || !Array.isArray(b?.plugins)) throw new Error("that isn't a Plugin Exporter backup")
@@ -250,13 +267,23 @@ function SettingsPage() {
 					/>
 					<TableRow
 						label="Copy backup"
-						subLabel="To paste somewhere safe, like a note or a DM to yourself"
+						subLabel="Plugins, repos and settings, to paste somewhere safe (a note, a DM to yourself)"
 						disabled={busy}
 						onPress={run(async () => {
 							const b = await makeBackup()
 							setSummary(`${b.plugins.length} plugins, ${b.repos.length} repos`)
-							Clipboard.setString(JSON.stringify(b))
-							toast('Backup copied')
+							await copy(JSON.stringify(b), 'Backup')
+						})}
+					/>
+					<TableRow
+						label="Copy plugin list only"
+						subLabel="Without settings: much smaller, fits the clipboard when the full backup doesn't"
+						disabled={busy}
+						onPress={run(async () => {
+							const b = await makeBackup()
+							for (const p of b.plugins) delete p.settings
+							setSummary(`${b.plugins.length} plugins, ${b.repos.length} repos (no settings)`)
+							await copy(JSON.stringify(b), 'Plugin list')
 						})}
 					/>
 				</TableRowGroup>
