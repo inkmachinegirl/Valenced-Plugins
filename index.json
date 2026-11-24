@@ -2492,6 +2492,30 @@
         }
       }
     },
+    "dev.ketsuyumi.sort-friends": {
+      "name": "Sort Friends",
+      "description": "Sorts your friends list by the date you became friends, newest or oldest first, instead of A to Z. Searching still shows the best matches first.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "FriendsIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.sort-friends@1.0.0.zip",
+          "sha256": "9bfd9aef495c6e5ea4a15d51434b9a23272b42e363a62ad7a8d0733fbd76fc92",
+          "size": 1701,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.spectators": {
       "name": "Spectators",
       "description": "See who is watching a stream, yours or someone else's, like on PC. Optional notices when people start or stop watching, and a notification with the count while you stream, also outside the app.",
