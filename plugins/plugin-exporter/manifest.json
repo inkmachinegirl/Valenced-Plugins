@@ -5,7 +5,7 @@
 	"description": "Back up every plugin you installed (repo, version, on/off and settings) to a file or your clipboard, and restore it on any phone: missing repos and plugins are added and settings put back.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "DownloadIcon",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

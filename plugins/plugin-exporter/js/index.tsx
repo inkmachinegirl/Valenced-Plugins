@@ -132,6 +132,56 @@ async function saveFile(text: string, name: string): Promise<string> {
 	throw new Error(`Save screen: ${screenError ?? 'unavailable'}. Use Copy instead`)
 }
 
+/** Reads a picked file (a content:// address), trying each way a phone supports. */
+async function readPicked(picker: any, files: any, item: any): Promise<string> {
+	const tried: string[] = []
+	const readPath = async (path: string) => {
+		const plain = decodeURI(String(path).replace(/^file:\/\//, ''))
+		try {
+			return await readFile(plain)
+		} catch {
+			return String(await files.readFile(plain, 'utf8'))
+		}
+	}
+	// 1. A local copy the picker makes (new picker: keepLocalCopy; old: fileCopyUri).
+	if (item.fileCopyUri) {
+		try {
+			return await readPath(item.fileCopyUri)
+		} catch (e: any) {
+			tried.push(`copy: ${msg(e)}`)
+		}
+	}
+	if (typeof picker?.keepLocalCopy === 'function') {
+		try {
+			const res = await picker.keepLocalCopy({
+				files: [{ uri: item.uri, fileName: item.name ?? 'backup.json' }],
+				destination: 'cachesDirectory',
+			})
+			const local = (Array.isArray(res) ? res[0] : res)?.localUri
+			if (local) return await readPath(local)
+			tried.push('copy: no local file')
+		} catch (e: any) {
+			tried.push(`copy: ${msg(e)}`)
+		}
+	}
+	// 2. React Native's fetch reads content:// addresses through its blob module.
+	try {
+		const res = await fetch(item.uri)
+		const text = await res.text()
+		if (text) return text
+		tried.push('fetch: empty')
+	} catch (e: any) {
+		tried.push(`fetch: ${msg(e)}`)
+	}
+	// 3. Discord's asset reader.
+	try {
+		return String(await files.readAsset(item.uri, 'utf8'))
+	} catch (e: any) {
+		tried.push(`asset: ${msg(e)}`)
+	}
+	throw new Error(`reading the file (${tried.join('; ')})`)
+}
+
 async function pickFile(): Promise<string> {
 	const picker = native('RNDocumentPicker')
 	const files = native('NativeFileModule')
@@ -154,13 +204,9 @@ async function pickFile(): Promise<string> {
 		}
 	}
 	if (!picked) throw new Error(`file picker: ${msg(lastError)}`)
-	const uri = (Array.isArray(picked) ? picked[0] : picked)?.uri
-	if (!uri) throw new Error('no file picked')
-	try {
-		return String(await files.readAsset(uri, 'utf8'))
-	} catch (e: any) {
-		throw new Error(`reading the file: ${msg(e)}`)
-	}
+	const item = Array.isArray(picked) ? picked[0] : picked
+	if (!item?.uri) throw new Error('no file picked')
+	return readPicked(picker, files, item)
 }
 
 /**
