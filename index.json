@@ -1494,18 +1494,31 @@
       }
     },
     "dev.ketsuyumi.last-active": {
-      "name": "Last Active",
+      "name": "Jump to Last Active",
       "description": "Long-press a message to jump to that person's last message here or anywhere in the server, or to your own last message here. It finds the message with Discord's search and jumps to it, highlighted.",
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "ClockIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.0.1"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.last-active@1.0.0.zip",
           "sha256": "14fbfd9ddf93265cab336a9767bc443f23579618d62abeebd1c4327b32b4b1ce",
           "size": 2539,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.1": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.last-active@1.0.1.zip",
+          "sha256": "53bad9c104314259178f81511a0ee168dce7fefc6415466556659c236bbf9407",
+          "size": 2543,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
