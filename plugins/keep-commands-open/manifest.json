@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.keep-commands-open",
+	"name": "Keep Commands Open",
+	"description": "In an app command's screen (like Mudae's /wa), Send sends the command and stays on that screen, ready to send it again, instead of closing.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "SlashBoxIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

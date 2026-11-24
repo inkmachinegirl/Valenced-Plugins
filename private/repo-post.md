@@ -26,6 +26,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Hide Server Guide** `1.0.0`: remove the Server Guide row from every server
 • **Hide Get Started** `1.0.0`: hide the Get Started progress bar from every server
 • **Hide Stream Previews** `1.0.1`: hide the floating call preview after leaving the call screen
+• **Keep Commands Open** `1.0.0`: app command screens (like /wa) stay open after Send, ready to send again
 • **Launch Pad Reduced Motion** `1.0.0`: Launch Pad opens and closes without animations, the rest of Discord keeps them
 • **Ignore Apps** `1.0.4`: hide messages from bots Discord won't let you block, like MEE6
 • **Ignore by Role** `1.1.0`: type a server and a role, then pick who with that role to ignore
