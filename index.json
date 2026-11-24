@@ -1493,6 +1493,30 @@
         }
       }
     },
+    "dev.ketsuyumi.last-active": {
+      "name": "Last Active",
+      "description": "Long-press a message to jump to that person's last message here or anywhere in the server, or to your own last message here. It finds the message with Discord's search and jumps to it, highlighted.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "ClockIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.last-active@1.0.0.zip",
+          "sha256": "14fbfd9ddf93265cab336a9767bc443f23579618d62abeebd1c4327b32b4b1ce",
+          "size": 2539,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.launchpad-reduced-motion": {
       "name": "Launch Pad Reduced Motion",
       "description": "Reduced motion for Launch Pad only: it opens and closes without sliding, fading or bouncing, while the rest of Discord keeps its animations and Android's animation setting stays as it is. Switch in the plugin's settings.",
