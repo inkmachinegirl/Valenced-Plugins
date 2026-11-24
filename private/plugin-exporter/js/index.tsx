@@ -96,41 +96,71 @@ export async function makeBackup(): Promise<Backup> {
 	return { format: 'plugin-exporter', version: 1, createdAt: new Date().toISOString(), repos, plugins }
 }
 
+const isCancel = (e: any) => /cancel/i.test(String(e?.code ?? e?.message ?? e))
+const msg = (e: any) => String(e?.message ?? e)
+
 async function saveFile(text: string, name: string): Promise<string> {
 	const files = native('NativeFileModule')
 	if (typeof files?.writeFile !== 'function') throw new Error("couldn't reach Discord's file writer")
 	const path = String(await files.writeFile('cache', name, text, 'utf8'))
 	const uri = `file://${encodeURI(path.replace(/^file:\/*/, '/'))}`
+	let screenError: string | undefined
+	// 1. Android's Save screen (you pick the folder).
 	const picker = native('RNDocumentPicker')
-	if (typeof picker?.saveDocument !== 'function') throw new Error("Android's Save screen isn't available; use Copy instead")
-	let picked: any
-	try {
-		picked = await picker.saveDocument({ sourceUris: [uri], fileName: name, mimeType: 'application/json', copy: true })
-	} catch (e: any) {
-		if (/cancel/i.test(String(e?.code ?? e?.message ?? e))) throw new Error('cancelled')
-		throw e
+	if (typeof picker?.saveDocument === 'function') {
+		try {
+			const picked = await picker.saveDocument({ sourceUris: [uri], fileName: name, mimeType: 'application/json', copy: true })
+			const written = await picker.writeDocuments?.(picked)
+			const err = (Array.isArray(written) ? written : []).find((r: any) => r?.error)?.error
+			if (err) throw new Error(String(err))
+			return `Saved ${name}`
+		} catch (e: any) {
+			if (isCancel(e)) throw new Error('cancelled')
+			screenError = msg(e)
+		}
 	}
-	const written = await picker.writeDocuments?.(picked)
-	const err = (Array.isArray(written) ? written : []).find((r: any) => r?.error)?.error
-	if (err) throw new Error(String(err))
-	return `Saved ${name}`
+	// 2. Straight to Downloads, the way Discord saves media.
+	const media = native('NativeMediaManagerModule')
+	if (typeof media?.downloadMediaAssetWithContentType === 'function') {
+		try {
+			await media.downloadMediaAssetWithContentType(uri, 0, 'application/json')
+			return `Saved ${name} to Downloads`
+		} catch (e: any) {
+			throw new Error(`Save screen: ${screenError ?? 'unavailable'}; Downloads: ${msg(e)}`)
+		}
+	}
+	throw new Error(`Save screen: ${screenError ?? 'unavailable'}. Use Copy instead`)
 }
 
 async function pickFile(): Promise<string> {
 	const picker = native('RNDocumentPicker')
 	const files = native('NativeFileModule')
 	if (typeof picker?.pick !== 'function' || typeof files?.readAsset !== 'function')
-		throw new Error("the file picker isn't available; use Paste instead")
+		throw new Error("the file picker isn't available; use Restore from clipboard instead")
 	let picked: any
-	try {
-		picked = await picker.pick({ mode: 'open', type: ['*/*'], allowMultiSelection: false, requestLongTermAccess: false })
-	} catch (e: any) {
-		if (/cancel/i.test(String(e?.code ?? e?.message ?? e))) throw new Error('cancelled')
-		throw e
+	let lastError: unknown
+	// Simplest options last: some phones' pickers fail on the fuller ones.
+	for (const options of [
+		{ mode: 'open', type: ['*/*'], allowMultiSelection: false, requestLongTermAccess: false },
+		{ type: ['*/*'] },
+		{ type: ['application/json', 'text/plain', 'application/octet-stream'] },
+	]) {
+		try {
+			picked = await picker.pick(options)
+			break
+		} catch (e: any) {
+			if (isCancel(e)) throw new Error('cancelled')
+			lastError = e
+		}
 	}
+	if (!picked) throw new Error(`file picker: ${msg(lastError)}`)
 	const uri = (Array.isArray(picked) ? picked[0] : picked)?.uri
 	if (!uri) throw new Error('no file picked')
-	return String(await files.readAsset(uri, 'utf8'))
+	try {
+		return String(await files.readAsset(uri, 'utf8'))
+	} catch (e: any) {
+		throw new Error(`reading the file: ${msg(e)}`)
+	}
 }
 
 /**
@@ -236,7 +266,10 @@ function SettingsPage() {
 			await fn()
 		} catch (e: any) {
 			const m = e?.message ?? String(e)
-			if (m !== 'cancelled') toast(`Failed: ${m}`)
+			if (m !== 'cancelled') {
+				toast(`Failed: ${m}`)
+				log(`Failed: ${m}`)
+			}
 		} finally {
 			setBusy(false)
 		}
@@ -302,7 +335,7 @@ function SettingsPage() {
 					/>
 				</TableRowGroup>
 				{lines.length ? (
-					<TableRowGroup title="Restore log">
+					<TableRowGroup title="Log">
 						{lines.map((l, i) => (
 							<TableRow key={i} label={l} />
 						))}
