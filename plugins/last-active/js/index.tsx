@@ -9,7 +9,7 @@ import { createElement, isValidElement } from 'react'
 import { ScrollView } from 'react-native'
 
 /**
- * Last Active: jump to someone's last message (or your own) in this channel or the whole server,
+ * Jump to Last Active: jump to someone's last message (or your own) in this channel or the whole server,
  * from the message long-press menu.
  *
  * - The menu: the sheet's message is remembered when ActionSheetActionCreators.openLazy opens
