@@ -1349,6 +1349,30 @@
         }
       }
     },
+    "dev.ketsuyumi.keep-commands-open": {
+      "name": "Keep Commands Open",
+      "description": "In an app command's screen (like Mudae's /wa), Send sends the command and stays on that screen, ready to send it again, instead of closing.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "SlashBoxIcon",
+      "channels": {
+        "latest": "1.0.0"
+      },
+      "versions": {
+        "1.0.0": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.keep-commands-open@1.0.0.zip",
+          "sha256": "3151f5f7e7845c1aeab86f95b9ca5295ddf56c76ba5bdb8ea78b1d5c7dea9254",
+          "size": 2015,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.last-active": {
       "name": "Jump to Last Active",
       "description": "Long-press a message to jump to that person's last message here or anywhere in the server, or to your own last message here. It finds the message with Discord's search and jumps to it, highlighted.",
