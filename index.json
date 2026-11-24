@@ -1652,6 +1652,30 @@
         }
       }
     },
+    "dev.ketsuyumi.plugin-exporter": {
+      "name": "Plugin Exporter",
+      "description": "Back up every plugin you installed (repo, version, on/off and settings) to a file or your clipboard, and restore it on any phone: missing repos and plugins are added and settings put back.",
+      "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+      "icon": "DownloadIcon",
+      "channels": {
+        "latest": "1.0.2"
+      },
+      "versions": {
+        "1.0.2": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.plugin-exporter@1.0.2.zip",
+          "sha256": "6f381f0c9d37735b4dba7a6fcda1facf87c350a72befa77a8f75acaa19e60d8c",
+          "size": 3532,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        }
+      }
+    },
     "dev.ketsuyumi.plugin-sort": {
       "name": "Plugin Sort",
       "description": "More sorts and filters in Settings › Plugins: sort by most resource use, longest call (stutters), most calls, slowest startup or most hooks, and filter plugins that cause stutters or that sat unused all session. Uses Performance Monitor's numbers.",
