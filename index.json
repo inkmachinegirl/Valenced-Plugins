@@ -1745,7 +1745,7 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "GameControllerIcon",
       "channels": {
-        "latest": "1.2.1"
+        "latest": "1.2.2"
       },
       "versions": {
         "1.0.0": {
@@ -1791,6 +1791,19 @@
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.profile-widgets@1.2.1.zip",
           "sha256": "f130e530bf1f760129539be951f942304348de6a7a48ca649c45ad85a34f6fc7",
           "size": 10787,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.2.2": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.profile-widgets@1.2.2.zip",
+          "sha256": "fe7d6521a30581f75a1eb46bfc6be5ca05e5de7ac409b0fc46a9a3890707d97f",
+          "size": 10968,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
