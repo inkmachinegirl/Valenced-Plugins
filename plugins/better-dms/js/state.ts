@@ -44,6 +44,12 @@ export interface Settings {
 	unreadColor: string
 	/** Put the hints on a second line under the preview (may be cut off on some versions). */
 	extraLine: boolean
+	/** Tab keys in the order to show them ('first' is All / DMs); unknown tabs follow. */
+	tabOrder: string[]
+	/** Tab keys not shown ('first' is All / DMs). */
+	hiddenTabs: string[]
+	/** Which tabs show an unread count. */
+	tabBadges: 'every' | 'unread' | 'categories' | 'none'
 }
 
 export const DEFAULTS: Settings = {
@@ -69,6 +75,9 @@ export const DEFAULTS: Settings = {
 	fadeAfterDays: 30,
 	unreadColor: '#F23F42',
 	extraLine: false,
+	tabOrder: [],
+	hiddenTabs: [],
+	tabBadges: 'every',
 }
 
 export const PALETTE: [string, string][] = [

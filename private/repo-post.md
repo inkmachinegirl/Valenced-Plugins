@@ -6,7 +6,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 **Plugins**
 • **AO3 Reader** `1.0.0`: read AO3 links in a clean reader with themes, text size and a library
 • **Auto Collapse** `1.2.0`: collapse categories with nothing new when you open a server
-• **Better DMs** `1.3.0`: colours, labels, emoji and pins for DMs, tabs (with a Groups tab), unread and mutual-server hints, a name banner, a send check for careful chats and private nicknames
+• **Better DMs** `1.4.0`: colours, labels, emoji and pins for DMs, tabs (with a Groups tab), unread and mutual-server hints, a name banner, a send check for careful chats and private nicknames
 • **Block by ID** `1.3.2`: block anyone by pasting their user ID, even with no shared server or DM
 • **Bulk Mute** `1.0.0`: select channels and mute or unmute them all at once
 • **Compact Status** `1.0.1`: a smaller status sheet, the statuses as one row of icons

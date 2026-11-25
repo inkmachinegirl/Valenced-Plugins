@@ -12,7 +12,7 @@ import {
 	setTab,
 	shows,
 } from './list'
-import { isUnread, labels, on, onChange, settings } from './state'
+import { isUnread, labels, on, onChange, setSettings, settings } from './state'
 import { Chip } from './ui'
 import type { Tab } from './list'
 
@@ -23,11 +23,14 @@ import type { Tab } from './list'
 
 const HEADER = 'modules/main_tabs_v2/native/tabs/messages/MessagesHeader.tsx'
 
-/** The tabs there are right now, with their names. */
-export function tabList(): [Tab, string][] {
+/** The key a tab is saved under: 'first' for All / DMs (its key changes with the Groups tab). */
+export const tabKey = (t: Tab): string => (t === 'all' || t === 'dms' ? 'first' : t)
+
+/** Every tab there could be right now, in the saved order, hidden ones included. */
+export function allTabs(): [Tab, string][] {
 	const first = firstTab()
 	const pinnedAny = Object.values(settings().dms).some(d => d.pinned)
-	return [
+	const base: [Tab, string][] = [
 		[first, first === 'dms' ? 'DMs' : 'All'],
 		...(on('groupTab') ? ([['groups', 'Groups']] as [Tab, string][]) : []),
 		['unread', 'Unread'],
@@ -37,6 +40,44 @@ export function tabList(): [Tab, string][] {
 			: []),
 		...labels().map(l => [`label:${l}`, l] as [Tab, string]),
 	]
+	const order = settings().tabOrder ?? []
+	const rank = (t: Tab, i: number) => {
+		const at = order.indexOf(tabKey(t))
+		return at < 0 ? order.length + i : at
+	}
+	return base
+		.map((tab, i) => ({ tab, r: rank(tab[0], i) }))
+		.sort((a, b) => a.r - b.r)
+		.map(x => x.tab)
+}
+
+/** The tabs there are right now (minus hidden ones), with their names. */
+export function tabList(): [Tab, string][] {
+	const hidden = new Set(settings().hiddenTabs ?? [])
+	const all = allTabs()
+	const shown = all.filter(([t]) => !hidden.has(tabKey(t)))
+	// Never an empty bar: with everything hidden, the first tab stays.
+	return shown.length ? shown : all.slice(0, 1)
+}
+
+/** Moves tab [t] one place up (-1) or down (+1) in the saved order. */
+export function moveTab(t: Tab, by: -1 | 1) {
+	const keys = allTabs().map(([x]) => tabKey(x))
+	const at = keys.indexOf(tabKey(t))
+	const to = at + by
+	if (at < 0 || to < 0 || to >= keys.length) return
+	;[keys[at], keys[to]] = [keys[to]!, keys[at]!]
+	setSettings({ tabOrder: keys })
+	fixTab()
+}
+
+/** Shows or hides tab [t]. */
+export function showTab(t: Tab, show: boolean) {
+	const hidden = new Set(settings().hiddenTabs ?? [])
+	if (show) hidden.delete(tabKey(t))
+	else hidden.add(tabKey(t))
+	setSettings({ hiddenTabs: [...hidden] })
+	fixTab()
 }
 
 /**
@@ -50,7 +91,8 @@ export function fixTab() {
 		if (t !== 'all') setTab('all')
 		return
 	}
-	if (!tabList().some(([x]) => x === t)) setTab(firstTab())
+	const list = tabList()
+	if (!list.some(([x]) => x === t)) setTab(list[0]?.[0] ?? firstTab())
 }
 
 /** Every DM and group DM, from Discord's own (unfiltered) map. */
@@ -85,7 +127,14 @@ function TabBar() {
 	const tabs = tabList()
 	const active = currentTab()
 	const unread = allPrivateIds().filter(isUnread)
-	const count = (t: Tab) => unread.filter(id => shows(id, t)).length
+	// Which tabs show a count, so one unread DM isn't counted on three tabs at once.
+	const mode = settings().tabBadges ?? 'every'
+	const counts = (t: Tab) =>
+		mode === 'every' ||
+		(mode === 'unread' && t === 'unread') ||
+		(mode === 'categories' && t !== 'unread' && tabKey(t) !== 'first')
+	const count = (t: Tab) =>
+		counts(t) ? unread.filter(id => shows(id, t)).length : 0
 	return (
 		<View style={{ paddingVertical: 6 }}>
 			<ScrollView

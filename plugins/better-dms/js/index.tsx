@@ -24,7 +24,7 @@ import {
 	settings,
 	user,
 } from './state'
-import { installTabs } from './tabs'
+import { allTabs, installTabs, moveTab, showTab, tabKey } from './tabs'
 import { installEmptyText } from './empty'
 import { Chip } from './ui'
 import type { Features, Settings } from './state'
@@ -124,6 +124,61 @@ function conversations(): string[] {
 	})
 }
 
+/** Reorder, hide and badge the tabs (shown when Tabs is on). */
+function TabSettings() {
+	const { Stack, Text, TableRowGroup, TableRow } = Design as any
+	const s = settings()
+	const hidden = new Set(s.hiddenTabs ?? [])
+	const tabs = allTabs()
+	const badges: [Settings['tabBadges'], string][] = [
+		['every', 'Every tab'],
+		['unread', 'Only Unread'],
+		['categories', 'Friends, Groups, labels…'],
+		['none', 'None'],
+	]
+	return (
+		<Stack spacing={8}>
+			<TableRowGroup title="Tabs: order and which to show">
+				{tabs.map(([t, label], i) => {
+					const shown = !hidden.has(tabKey(t))
+					return (
+						<TableRow
+							key={t}
+							label={label}
+							subLabel={shown ? undefined : 'Hidden'}
+							trailing={
+								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+									{i > 0 ? <Chip label="↑" on={false} onPress={() => moveTab(t, -1)} /> : null}
+									{i < tabs.length - 1 ? (
+										<Chip label="↓" on={false} onPress={() => moveTab(t, 1)} />
+									) : null}
+									<Chip label={shown ? 'Shown' : 'Hidden'} on={shown} onPress={() => showTab(t, !shown)} />
+								</View>
+							}
+						/>
+					)
+				})}
+			</TableRowGroup>
+			<Text variant="text-sm/semibold" color="text-muted">
+				Unread counts on tabs
+			</Text>
+			<ScrollView horizontal showsHorizontalScrollIndicator={false}>
+				{badges.map(([mode, label]) => (
+					<Chip
+						key={mode}
+						label={label}
+						on={(s.tabBadges ?? 'every') === mode}
+						onPress={() => setSettings({ tabBadges: mode })}
+					/>
+				))}
+			</ScrollView>
+			<Text variant="text-xs/medium" color="text-muted">
+				So one unread DM from a friend isn't counted on All, Unread and Friends at once.
+			</Text>
+		</Stack>
+	)
+}
+
 function SettingsPage() {
 	const { Stack, Text, TextInput, TableRowGroup, TableRow, TableSwitchRow } =
 		Design as any
@@ -194,6 +249,7 @@ function SettingsPage() {
 						))}
 					</TableRowGroup>
 				))}
+				{s.features.tabs ? <TabSettings /> : null}
 				<Stack spacing={8}>
 					<Text variant="text-sm/semibold" color="text-muted">
 						Unread colour

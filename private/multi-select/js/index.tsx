@@ -65,6 +65,8 @@ interface Settings {
 	headerButton: boolean
 	/** A select toggle in the chat input bar (1.4.0). */
 	chatButton: Side
+	/** "Select messages" in the message long-press menu (1.6.0). */
+	menuRow: boolean
 }
 type Api = PluginApi<{ jsonStorage: Settings }>
 
@@ -74,6 +76,7 @@ const DEFAULTS: Settings = {
 	tapSelect: true,
 	headerButton: true,
 	chatButton: 'left',
+	menuRow: true,
 }
 const COLORS: [string, string][] = [
 	['#5865F2', 'Blurple'],
@@ -241,7 +244,7 @@ function lastRowArray(node: any, depth = 0): any[] | null {
 
 function withSelectRow(rendered: any) {
 	const message = pending?.message
-	if (!enabled || !message?.id) return rendered
+	if (!enabled || settings().menuRow === false || !message?.id) return rendered
 	const rows = lastRowArray(rendered)
 	if (!rows) return rendered
 	const at = rows.reduce(
@@ -312,6 +315,12 @@ function SettingsPage({ api }: { api: Api }) {
 						subLabel="A ✓ button next to search in chats that starts (or stops) selecting."
 						value={s.headerButton}
 						onValueChange={(headerButton: boolean) => set({ headerButton })}
+					/>
+					<TableSwitchRow
+						label="Select messages in the long-press menu"
+						subLabel="The row this plugin adds when you hold a message. Turn off to keep that menu as Discord's; start selecting from the ✓ buttons instead."
+						value={s.menuRow !== false}
+						onValueChange={(menuRow: boolean) => set({ menuRow })}
 					/>
 					<TableSwitchRow
 						label="Tap to select"

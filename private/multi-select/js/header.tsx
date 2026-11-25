@@ -1,8 +1,10 @@
 import { getAssetIdByName } from '@valenced/assets'
 import { Design } from '@valenced/discord/design'
+import { Stores } from '@valenced/discord/flux'
 import { after } from '@valenced/patcher'
 import { lookupGeneratedIconComponent } from '@valenced/utils/discord'
 import { cloneElement, isValidElement } from 'react'
+import { View } from 'react-native'
 import { findModule } from './find'
 import type { ReactElement } from 'react'
 
@@ -32,6 +34,7 @@ const FILES: [file: string, label: string][] = [
 ]
 const ICONS = ['CircleCheckIcon', 'CheckmarkLargeIcon', 'CheckmarkSmallIcon']
 const KEY = 'multi-select-header'
+const ACTIONS = 'modules/main_tabs_v2/native/channel/ChannelActions.tsx'
 
 const attached = new Set<string>()
 const shown = new Set<string>()
@@ -205,6 +208,41 @@ export function installHeader(options: Options): () => void {
 			}),
 		)
 	}
+	// Server channels and threads: their buttons are built inside ChannelActions (the header's
+	// right side) by components that aren't exported, so the button goes in front of them in
+	// ChannelActions' own row. DMs are left to the PrivateChannelButtons hook above.
+	undo.push(
+		findModule(ACTIONS, ['ChannelActions'], (mod: any) => {
+			const target = renderTarget(mod)
+			if (!target || hooked.has(target.host[target.key])) return
+			hooked.add(target.host[target.key])
+			attached.add('Server channels')
+			undo.push(
+				after(target.host, target.key, ((rendered: any) => {
+					try {
+						if (!options.enabled() || !isNode(rendered)) return rendered
+						const child = rendered.props.children
+						const id = isNode(child) ? child.props?.channelId : undefined
+						const channel = id ? (Stores as any).ChannelStore?.getChannel?.(id) : undefined
+						if (!channel || channel.isPrivate?.()) return rendered
+						const button = fallbackButton(options)
+						if (!button) return rendered
+						shown.add('Server channels')
+						return cloneElement(
+							rendered,
+							undefined,
+							<View key="multi-select-row" style={{ flexDirection: 'row', alignItems: 'center' }}>
+								{button}
+								{child}
+							</View>,
+						)
+					} catch {
+						return rendered
+					}
+				}) as never),
+			)
+		}),
+	)
 	return () => {
 		for (const fn of undo.splice(0))
 			try {
