@@ -5,7 +5,7 @@
 	"description": "Reduced motion for Launch Pad only: it opens and closes without sliding, fading or bouncing, while the rest of Discord keeps its animations and Android's animation setting stays as it is. Switch in the plugin's settings.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "RocketIcon",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

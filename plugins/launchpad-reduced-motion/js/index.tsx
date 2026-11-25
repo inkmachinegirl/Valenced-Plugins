@@ -8,20 +8,24 @@ import { ScrollView } from 'react-native'
  * config, LaunchPadConstants.LAUNCH_PAD_SPRING_CONFIG ({ damping 20, stiffness 280, mass 0.5 }),
  * and they pass 'animate-always', so Android's own reduce-motion setting is ignored. The other
  * modules keep a reference to that same object, so changing its numbers in place changes all of
- * them: a critically damped, very stiff spring that lands in a few milliseconds, i.e. no motion.
+ * them: an over-damped, very stiff spring that lands in about 50 ms, i.e. no visible motion.
  * Nothing else in Discord uses it, so the rest of the app keeps its animations.
  */
 
 const CONSTANTS = 'modules/launchpad/native/LaunchPadConstants.tsx'
+// Over-damped (damping ratio 1.3), very stiff: settles in about 50 ms with no bounce. Not exactly
+// critical damping: at a damping ratio of exactly 1 the spring maths divides by a near-zero number
+// and could leave a value (like the dimmed backdrop's opacity) stuck part-way until a reload.
+const STIFFNESS = 20000
+const MASS = 0.5
 const INSTANT = {
-	mass: 0.5,
-	stiffness: 100000,
-	// Critical damping (2·√(k·m)): straight to the end, no bounce.
-	damping: 2 * Math.sqrt(100000 * 0.5),
+	mass: MASS,
+	stiffness: STIFFNESS,
+	damping: 1.3 * 2 * Math.sqrt(STIFFNESS * MASS),
 	overshootClamping: true,
-	restDisplacementThreshold: 0.5,
-	restSpeedThreshold: 5,
 }
+/** Keys older versions set; removed so Discord's defaults apply again. */
+const OLD_KEYS = ['restDisplacementThreshold', 'restSpeedThreshold']
 
 interface Settings {
 	reduced: boolean
@@ -36,7 +40,7 @@ function apply() {
 	if (!config || !original) return
 	const on = (storage?.cache?.reduced ?? DEFAULTS.reduced) !== false
 	try {
-		for (const key of Object.keys(INSTANT)) delete config[key]
+		for (const key of [...Object.keys(INSTANT), ...OLD_KEYS]) delete config[key]
 		Object.assign(config, on ? INSTANT : original)
 	} catch {
 		/* a frozen config: nothing to do */
@@ -81,7 +85,7 @@ export default plugin<{ jsonStorage: Settings }>({
 			() => {
 				if (config && original) {
 					try {
-						for (const key of Object.keys(INSTANT)) delete config[key]
+						for (const key of [...Object.keys(INSTANT), ...OLD_KEYS]) delete config[key]
 						Object.assign(config, original)
 					} catch {}
 				}
