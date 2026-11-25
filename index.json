@@ -1429,13 +1429,26 @@
       "author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
       "icon": "RocketIcon",
       "channels": {
-        "latest": "1.0.0"
+        "latest": "1.0.1"
       },
       "versions": {
         "1.0.0": {
           "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.launchpad-reduced-motion@1.0.0.zip",
           "sha256": "c723c7cb325b5a07f13eda6b2d46664f52ce3b9dbdfa52ac4991c0afc852831a",
           "size": 1501,
+          "dependencies": {
+            "valenced.api": {
+              "version": ">=1 <2"
+            },
+            "discord": {
+              "version": "*"
+            }
+          }
+        },
+        "1.0.1": {
+          "url": "https://inkmachinegirl.github.io/Valenced-Plugins/pool/dev.ketsuyumi.launchpad-reduced-motion@1.0.1.zip",
+          "sha256": "f6cdafa69248c29cd75b733fd7718f499aa1589cc0392113b72305e09ded0bb2",
+          "size": 1517,
           "dependencies": {
             "valenced.api": {
               "version": ">=1 <2"
