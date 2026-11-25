@@ -12,6 +12,7 @@ import { computeGuildDockSpecs } from './data'
 import { overlay, patchChatSwipe } from './chatswipe'
 import { motionPrefs } from './prefs'
 import { patchUnreadPull, pullPrefs } from './unreadpull'
+import { patchMenuKey } from './menukey'
 import { patchFocusMenu } from './focus'
 import SettingsComponent, { DefaultSettings } from './settings'
 import { createServerDrawer, DOCK_REST_OFFSET } from './surface'
@@ -51,6 +52,8 @@ export default plugin<{ jsonStorage: t.ServerDrawerPreferences }>({
 		// Satou: pull at the bottom of a chat for the next unread channel.
 		pullPrefs.on = (jsonStorage as any).cache?.pullNextUnread !== false
 		patchUnreadPull(cleanup)
+		// Satou: other plugins' server rows in the drawer's long-press menu.
+		patchMenuKey(cleanup)
 		const abort = new AbortController()
 		cleanup(() => abort.abort())
 		cleanup(

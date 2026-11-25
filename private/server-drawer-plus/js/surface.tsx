@@ -45,6 +45,7 @@ import {
 	orderedDms,
 } from './data'
 import type * as t from './types'
+import { guildOfItem } from './menukey'
 
 export const DOCK_REST_OFFSET = 6
 const VIEW_OPTIONS = [
@@ -926,10 +927,12 @@ export function createServerDrawer(
 						.join('\u0000'),
 				[guild.id],
 			)
-			const items: t.MenuItem[] = useMemo(
-				() => getItems(id).map(wrap),
-				[guild.id, labels],
-			)
+			const items: t.MenuItem[] = useMemo(() => {
+				const list = getItems(id).map(wrap)
+				// Satou: so other plugins' server rows find this menu (menukey.ts).
+				if (!folder) for (const item of list) guildOfItem.set(item, String(guild.id))
+				return list
+			}, [guild.id, labels])
 			useEffect(() => {
 				focusMenus.add(items)
 				const close = () => {
