@@ -31,6 +31,9 @@ import { drawerTouch } from './unreadpull'
 export const isSwipeUp = (dx: number, dy: number, vy = 0) =>
 	(dy < -16 || (dy < -6 && vy < -250)) && Math.abs(dy) > Math.abs(dx) * 0.6
 
+/** How far up from the bottom of the chat-bar component a swipe may start (the bar itself). */
+const BAR_ZONE = 150
+
 /** For the settings page: whether swipes reach the plugin. */
 export const swipeStatus = { touches: 0, swipes: 0, opened: 0 }
 
@@ -82,12 +85,18 @@ function gestureModule(): any {
 
 function SwipeArea({ children }: { children: React.ReactNode }) {
 	const g = gestureModule()
+	// Satou: the chat-bar component also holds the emoji / mention suggestion list above the bar.
+	// Swipes that start up there (scrolling that list) must not count: only the bar itself (reply
+	// strip, text box) and the area below it, the bottom BAR_ZONE of the wrapped view.
+	const height = React.useRef(0)
 	const pan = React.useMemo(() => {
 		if (!g?.Gesture?.Pan) return undefined
 		let fired = false
+		let blocked = false
 		const fire = (e: any) => {
 			if (
 				fired ||
+				blocked ||
 				!isSwipeUp(
 					e?.translationX ?? 0,
 					e?.translationY ?? 0,
@@ -108,6 +117,13 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 				// its own home-gesture strip at the very edge) and a bit above it.
 				.hitSlop({ top: 36, bottom: 600 })
 				.runOnJS(true)
+				.onTouchesDown((e: any, manager: any) => {
+					const y = e?.allTouches?.[0]?.y ?? e?.changedTouches?.[0]?.y
+					if (typeof y === 'number' && height.current > BAR_ZONE && y < height.current - BAR_ZONE) {
+						blocked = true
+						manager?.fail?.()
+					}
+				})
 				.onBegin(() => {
 					fired = false
 					drawerTouch.active = true
@@ -115,6 +131,7 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 				})
 				.onFinalize(() => {
 					drawerTouch.active = false
+					blocked = false
 				})
 				.onStart(() => {
 					swipeStatus.swipes++
@@ -128,7 +145,14 @@ function SwipeArea({ children }: { children: React.ReactNode }) {
 	const Detector = g.GestureDetector
 	return (
 		<Detector gesture={pan}>
-			<Native.View collapsable={false}>{children}</Native.View>
+			<Native.View
+				collapsable={false}
+				onLayout={(e: any) => {
+					height.current = e?.nativeEvent?.layout?.height ?? 0
+				}}
+			>
+				{children}
+			</Native.View>
 		</Detector>
 	)
 }
