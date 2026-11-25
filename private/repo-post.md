@@ -36,7 +36,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **No Blackout** `1.0.2`: stop the screen going black in calls when the proximity sensor is covered
 • **Plugin Sort** `1.0.0`: sort plugins by resource use, stutters, calls, startup or hooks, and filter the heavy or unused ones
 • **Plugin Exporter** `1.0.3`: back up all your plugins, repos and settings to a file or the clipboard, and restore them on any phone
-• **Profile Widgets** `1.2.1`: edit your game widgets right on your profile, with comments and tags
+• **Profile Widgets** `1.2.2`: edit your game widgets right on your profile, with comments and tags
 • **Quick Access** `1.4.4`: reload, Friends, Plugins and Performance Monitor buttons on the YouBar, each with its own switch
 • **Quick Folders** `1.2.0`: long-press a server to move it to a folder, no dragging
 • **Shop Browser** `1.13.1`: the Shop like on desktop, with Browse, sorting and filters

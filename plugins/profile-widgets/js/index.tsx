@@ -3,7 +3,7 @@ import { instead } from '@valenced/patcher'
 import { patchBoard } from './board'
 import { ToastActionCreators } from '@valenced/discord/actions'
 import { Design } from '@valenced/discord/design'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Image, ScrollView, View } from 'react-native'
 import {
 	errorText,
@@ -105,6 +105,24 @@ function SettingsPage() {
 	const dirty = useMemo(
 		() => JSON.stringify(saved) !== JSON.stringify(draft),
 		[saved, draft],
+	)
+
+	// Leaving with unsaved changes (Done, back) saves them instead of dropping them.
+	const pending = useRef<{ dirty: boolean; draft: Widget[] | null; busy: boolean }>({
+		dirty: false,
+		draft: null,
+		busy: false,
+	})
+	pending.current = { dirty, draft, busy }
+	useEffect(
+		() => () => {
+			const { dirty: d, draft: w, busy: b } = pending.current
+			if (!d || !w || b) return
+			saveWidgets(w)
+				.then(() => toast('Widgets saved'))
+				.catch(e => toast(`Couldn't save: ${errorText(e)}`))
+		},
+		[],
 	)
 
 	if (error)
@@ -268,7 +286,7 @@ function SettingsPage() {
 				</Stack>
 				<Text variant="text-xs/medium" color="text-muted">
 					Saving replaces your game widgets with what's above. Empty ones are
-					removed from your profile.
+					removed from your profile. Leaving this page saves unsaved changes too.
 				</Text>
 			</Stack>
 		</ScrollView>

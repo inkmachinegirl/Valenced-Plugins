@@ -5,7 +5,7 @@
 	"description": "Edit your profile's game widgets on mobile, right on your profile: an Edit widgets button on your Board tab, and Discord's own widget editor turned on where your Discord has it (354.1+). Add, remove and reorder games with comments and tags.",
 	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
 	"icon": "GameControllerIcon",
-	"version": "1.2.1",
+	"version": "1.2.2",
 	"dependencies": {
 		"valenced.api": {
 			"version": ">=1 <2"

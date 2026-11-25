@@ -1,3 +1,4 @@
+import { Dispatcher } from '@valenced/discord/common/flux'
 import { Stores } from '@valenced/discord/flux'
 import { lookupModule } from '@valenced/modules/finders'
 import { withProps } from '@valenced/modules/finders/filters'
@@ -154,12 +155,18 @@ export async function saveWidgets(widgets: Widget[]): Promise<Widget[]> {
 		url: '/users/@me/widgets',
 		body: { widgets: clean },
 	})
-	refreshProfile()
-	return Array.isArray(body)
+	const saved: Widget[] = Array.isArray(body)
 		? body
 		: Array.isArray(body?.widgets)
 			? body.widgets
 			: clean
+	// What Discord's own editor does after saving: UserProfileStore listens for this and shows the
+	// new widgets on your profile right away (re-fetching alone could keep showing the old ones).
+	try {
+		;(Dispatcher as any).dispatch({ type: 'WIDGET_PENDING_SAVE_SUCCESS', userId: myId(), widgets: saved })
+	} catch {}
+	refreshProfile()
+	return saved
 }
 
 /** Asks Discord to fetch the profile again so the Board tab shows the change. */
