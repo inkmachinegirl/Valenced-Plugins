@@ -67,8 +67,16 @@ object PlayerConnection {
 
     fun play(queue: List<Sound>, start: Sound) {
         val c = controller ?: return
+        val at = queue.indexOfFirst { it.key == start.key }.coerceAtLeast(0)
+        // Same queue already loaded (swiping through the feed): just jump, don't resend thousands of items.
+        val same = c.mediaItemCount == queue.size && queue.indices.all { c.getMediaItemAt(it).mediaId == queue[it].key }
+        if (same) {
+            c.seekToDefaultPosition(at)
+            c.play()
+            return
+        }
         val items = queue.map(::itemOf)
-        c.setMediaItems(items, queue.indexOfFirst { it.key == start.key }.coerceAtLeast(0), 0)
+        c.setMediaItems(items, at, 0)
         c.prepare()
         c.play()
     }

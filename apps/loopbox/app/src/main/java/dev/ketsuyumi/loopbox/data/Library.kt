@@ -108,7 +108,21 @@ object Library {
     @Synchronized
     private fun update(change: (LibraryState) -> LibraryState) {
         _state.value = change(_state.value)
-        save(_state.value)
+        scheduleSave()
+    }
+
+    // Saving writes the whole library; a big sync changes it thousands of times, so writes are
+    // made off the main thread and bunched together.
+    private val saver = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val dirty = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun scheduleSave() {
+        if (!dirty.compareAndSet(false, true)) return
+        saver.execute {
+            Thread.sleep(500)
+            dirty.set(false)
+            runCatching { save(_state.value) }
+        }
     }
 
     // ---- JSON ----

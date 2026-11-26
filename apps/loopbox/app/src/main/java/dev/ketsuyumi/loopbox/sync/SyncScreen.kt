@@ -49,6 +49,8 @@ import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 private const val DESKTOP_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -59,7 +61,7 @@ fun startUrl(source: Source) = when (source) {
 }
 
 fun howTo(source: Source) = when (source) {
-    Source.TIKTOK -> "Log in, then open your profile › Favorites › Sounds and scroll. Sounds are picked up as they load."
+    Source.TIKTOK -> "Log in, then open your profile › Favorites › Sounds. The rest of the list loads by itself; turn on Auto to import as it goes."
     Source.INSTAGRAM -> "Log in, then open your profile › Saved › Audio and scroll. Sounds are picked up as they load."
 }
 
@@ -74,7 +76,25 @@ private val CAPTURE_JS = """
 (function(){
   if (window.__loopbox) return; window.__loopbox = true;
   var KEYS = /playUrl|play_url|progressive_download_url/;
-  function send(t, from){ try { if (t && t.length < 8e6 && KEYS.test(t)) LoopboxBridge.found(t, location.href, from || ''); } catch(e){} }
+  function send(t, from){ try { if (t && t.length < 8e6 && KEYS.test(t)) { LoopboxBridge.found(t, location.href, from || ''); more(t, from); } } catch(e){} }
+  // The saved list comes a page (~30) at a time. When a page says there's more, ask for the next
+  // one straight away with the same request, so thousands of sounds don't need scrolling. The
+  // site's own script signs the new request; old signatures are dropped first.
+  var paged = {};
+  function more(t, from){
+    if (!/^https?:/.test(from || '') || !/collect|favorite|favourite|music_list|musiclist|saved|audio/i.test(from)) return;
+    var j; try { j = JSON.parse(t); } catch(e){ return; }
+    var has = j.hasMore || j.has_more || j.more_available;
+    var c = j.cursor != null ? j.cursor : (j.max_cursor != null ? j.max_cursor : j.next_max_id);
+    if (!has || c == null || c === '') return;
+    var u; try { u = new URL(from, location.href); } catch(e){ return; }
+    ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ u.searchParams.delete(k); });
+    var name = u.searchParams.has('max_cursor') ? 'max_cursor' : (u.searchParams.has('max_id') || j.next_max_id != null ? 'max_id' : 'cursor');
+    var key = u.pathname + '|' + c; if (paged[key]) return; paged[key] = 1;
+    u.searchParams.set(name, String(c));
+    try { LoopboxBridge.paging(Object.keys(paged).length); } catch(e){}
+    setTimeout(function(){ var x = new XMLHttpRequest(); x.open('GET', u.toString()); x.withCredentials = true; x.send(); }, 600);
+  }
   var f = window.fetch;
   if (f) window.fetch = function(input){ var u = typeof input === 'string' ? input : (input && input.url) || '';
     return f.apply(this, arguments).then(function(r){ try { r.clone().text().then(function(t){ send(t, r.url || u); }); } catch(e){} return r; }); };
@@ -89,9 +109,9 @@ private val CAPTURE_JS = """
   var timer = null;
   window.__loopboxScroll = function(on){
     if (timer) { clearInterval(timer); timer = null; }
-    if (on) timer = setInterval(function(){ window.scrollBy(0, window.innerHeight * 0.9);
+    if (on) timer = setInterval(function(){ window.scrollTo(0, document.body.scrollHeight);
       var el = document.scrollingElement; var boxes = document.querySelectorAll('div');
-      for (var i = 0; i < boxes.length; i++){ var b = boxes[i]; if (b.scrollHeight > b.clientHeight + 200 && b.clientHeight > 300) b.scrollTop += b.clientHeight * 0.9; }
+      for (var i = 0; i < boxes.length; i++){ var b = boxes[i]; if (b.scrollHeight > b.clientHeight + 200 && b.clientHeight > 300) b.scrollTop = b.scrollHeight; }
     }, 1200);
   };
 })();
@@ -125,30 +145,37 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
     var autoScroll by remember { mutableStateOf(auto) }
     var onlySaved by remember { mutableStateOf(true) }
     var skipped by remember { mutableStateOf(0) }
-    var importing by remember { mutableStateOf(false) }
+    var imported by remember { mutableStateOf(0) }
+    var pending by remember { mutableStateOf(0) }
+    var pages by remember { mutableStateOf(0) }
+    val gate = remember { Semaphore(4) }
     var done by remember { mutableStateOf(0) }
     var failed by remember { mutableStateOf(0) }
     var status by remember { mutableStateOf(howTo(source)) }
     var web by remember { mutableStateOf<WebView?>(null) }
     val main = remember { Handler(Looper.getMainLooper()) }
 
+    // Imports never get dropped: each batch is added to the library at once, and its downloads
+    // join a queue that runs a few at a time.
     fun import(list: List<Sound>) {
-        if (list.isEmpty() || importing) return
-        importing = true
-        scope.launch {
-            val fresh = Library.addAll(list)
-            found.removeAll { s -> list.any { it.key == s.key } }
-            for (s in fresh) {
-                Downloader.download(s).onSuccess { done++ }.onFailure { failed++ }
-            }
-            status = "Imported ${fresh.size} new sound${if (fresh.size == 1) "" else "s"}" +
-                if (failed > 0) " ($failed couldn't download yet; they'll retry from the library)" else ""
-            importing = false
+        if (list.isEmpty()) return
+        val fresh = Library.addAll(list)
+        found.removeAll { s -> list.any { it.key == s.key } }
+        imported += fresh.size
+        pending += fresh.size
+        for (s in fresh) scope.launch {
+            gate.withPermit { Downloader.download(s).onSuccess { done++ }.onFailure { failed++ } }
+            pending--
         }
     }
 
     val bridge = remember {
         object {
+            @JavascriptInterface
+            fun paging(n: Int) {
+                main.post { pages = n }
+            }
+
             @JavascriptInterface
             fun found(text: String, url: String, from: String) {
                 val sounds = Extractor.extract(source, text, url)
@@ -244,10 +271,23 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
             )
         }
         Column(Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(12.dp)) {
-            if (importing) LinearProgressIndicator(Modifier.fillMaxWidth().padding(bottom = 8.dp))
+            if (pending > 0) LinearProgressIndicator(Modifier.fillMaxWidth().padding(bottom = 8.dp))
             Text(
-                if (found.isNotEmpty()) "Found ${found.size} new saved sound${if (found.size == 1) "" else "s"}" else status,
+                when {
+                    found.isNotEmpty() -> "Found ${found.size} new saved sound${if (found.size == 1) "" else "s"}" +
+                        if (imported > 0) " · $imported imported" else ""
+                    imported > 0 -> "Imported $imported" + if (pending > 0) " · downloading $pending" else " · all downloaded"
+                    else -> status
+                },
                 color = Color.White, style = MaterialTheme.typography.bodyMedium,
+            )
+            if (pages > 0) Text(
+                "Loading your whole list: page ${pages + 1}…",
+                color = Color.Gray, style = MaterialTheme.typography.bodySmall,
+            )
+            if (failed > 0) Text(
+                "$failed couldn't download; they still play online and retry from the library",
+                color = Color.Gray, style = MaterialTheme.typography.bodySmall,
             )
             if (skipped > 0 && onlySaved) Text(
                 "Skipped $skipped from feeds (not saved). Open your saved sounds page.",
@@ -258,11 +298,10 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                 FilterChip(selected = autoScroll, onClick = { autoScroll = !autoScroll }, label = { Text("Auto") })
                 FilterChip(selected = onlySaved, onClick = { onlySaved = !onlySaved }, label = { Text("Only saved") })
                 Spacer(Modifier.weight(1f))
-                Button(enabled = found.isNotEmpty() && !importing, onClick = { import(found.toList()) }) {
+                Button(enabled = found.isNotEmpty(), onClick = { import(found.toList()) }) {
                     Text(if (found.isEmpty()) "Import" else "Import ${found.size}")
                 }
             }
-            if (done > 0) Text("$done downloaded this time", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
