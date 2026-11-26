@@ -40,6 +40,7 @@ import dev.ketsuyumi.loopbox.sync.SyncScreen
 import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.ui.Accent
 import dev.ketsuyumi.loopbox.ui.FeedScreen
+import dev.ketsuyumi.loopbox.ui.FeedNav
 import dev.ketsuyumi.loopbox.ui.SettingsScreen
 import dev.ketsuyumi.loopbox.data.Settings
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +72,10 @@ class MainActivity : ComponentActivity() {
                 var nowPlaying by remember { mutableStateOf(false) }
                 var sync by remember { mutableStateOf<Pair<Source, Boolean>?>(null) }
                 var settings by remember { mutableStateOf(false) }
+                // The library's Watch: go to the feed.
+                LaunchedEffect(FeedNav.open) {
+                    if (FeedNav.open) { tab = 0; nowPlaying = false; settings = false; FeedNav.open = false }
+                }
                 // Settings › Hide system bars: over the feed only; a swipe from the edge shows them for a moment.
                 val hideBars = Settings.hideSystemBars && tab == 0 && sync == null && !nowPlaying && !settings
                 LaunchedEffect(hideBars) {

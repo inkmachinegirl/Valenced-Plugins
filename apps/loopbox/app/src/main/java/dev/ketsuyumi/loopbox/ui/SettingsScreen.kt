@@ -45,7 +45,7 @@ fun SettingsScreen(onClose: () -> Unit) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 14.dp).padding(bottom = 24.dp)) {
             Section("Playback") {
                 Toggle(
-                    "Loop", "Each sound or video plays again until you swipe. When off, the next one starts by itself",
+                    "Loop", "Each video or sound plays again until you swipe, in every feed. When off, the next one starts by itself",
                     Settings.loop,
                 ) {
                     Settings.putLoop(it)
@@ -54,7 +54,7 @@ fun SettingsScreen(onClose: () -> Unit) {
             }
             Section("Feed") {
                 Toggle(
-                    "Videos in the feed", "Saved videos play in For You, and each saved sound shows a video that uses it. Uses more data",
+                    "Videos for saved sounds", "In Saved, each saved sound shows a TikTok video that uses it. Uses more data",
                     Settings.feedVideos, Settings::putFeedVideos,
                 )
                 Toggle(

@@ -157,7 +157,7 @@ private fun Tile(s: Sound, queue: List<Sound>) {
 
 // ---- Library ----
 
-private enum class Filter(val label: String) { ALL("All"), LIKED("Liked"), TIKTOK("TikTok"), INSTAGRAM("Instagram"), MISSING("Not downloaded"), VIDEOS("Videos") }
+private enum class Filter(val label: String) { ALL("All"), SOUNDS("Sounds"), VIDEOS("Videos"), LIKED("Liked"), TIKTOK("TikTok"), INSTAGRAM("Instagram"), MISSING("Not downloaded") }
 
 @Composable
 fun LibraryScreen() {
@@ -169,14 +169,15 @@ fun LibraryScreen() {
     val q = query.trim().lowercase()
     val shown = state.sounds
         .filter {
-            // Saved videos only under Videos; every other filter is sounds.
-            if (filter == Filter.VIDEOS) it.video
-            else !it.video && when (filter) {
+            // Saved sounds and saved videos together; a video plays as audio here, or Watch it.
+            when (filter) {
+                Filter.ALL -> true
+                Filter.SOUNDS -> !it.video
+                Filter.VIDEOS -> it.video
                 Filter.LIKED -> it.liked
                 Filter.TIKTOK -> it.source == Source.TIKTOK
                 Filter.INSTAGRAM -> it.source == Source.INSTAGRAM
                 Filter.MISSING -> it.file == null
-                else -> true
             }
         }
         .filter { q.isEmpty() || it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) }
@@ -192,7 +193,7 @@ fun LibraryScreen() {
         }
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${shown.size} sound${if (shown.size == 1) "" else "s"}", color = Color.Gray, modifier = Modifier.weight(1f))
-            val missing = state.sounds.filter { it.file == null && !it.video }
+            val missing = shown.filter { it.file == null }
             val sync by SyncService.progress.collectAsState()
             if (missing.isNotEmpty()) TextButton(enabled = sync.waiting == 0, onClick = {
                 SyncService.enqueue(context, missing.map { it.key })

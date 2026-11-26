@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.OndemandVideo
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -111,11 +112,14 @@ fun SoundRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (sound.file == null) Icon(Icons.Filled.CloudOff, "Not downloaded", tint = Color.Gray, modifier = Modifier.size(14.dp).padding(end = 4.dp))
                 Text(
-                    listOf(if (sound.source == Source.TIKTOK) "TikTok" else "Instagram", sound.artist).filter { it.isNotBlank() }.joinToString(" • "),
+                    listOf((if (sound.source == Source.TIKTOK) "TikTok" else "Instagram") + if (sound.video) " video" else "", sound.artist).filter { it.isNotBlank() }.joinToString(" • "),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
+        if (sound.video) IconButton(onClick = { FeedNav.watch(sound) }) {
+            Icon(Icons.Filled.OndemandVideo, "Watch", tint = Color.White)
         }
         IconButton(onClick = { Library.toggleLike(sound.key) }) {
             Icon(

@@ -89,6 +89,8 @@ object PlayerConnection {
         }
     }
 
+    fun pause() = controller?.pause()
+
     fun next() = controller?.seekToNext()
     fun previous() = controller?.seekToPrevious()
     fun seek(ms: Long) = controller?.seekTo(ms)

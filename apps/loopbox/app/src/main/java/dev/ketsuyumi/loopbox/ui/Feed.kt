@@ -37,7 +37,9 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,7 +50,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -86,43 +90,194 @@ import dev.ketsuyumi.loopbox.data.Sound
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.playback.VideoResolver
+import dev.ketsuyumi.loopbox.sync.SyncService
+import dev.ketsuyumi.loopbox.sync.LiveFeedWeb
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-private val TABS = listOf("Videos", "Sounds", "For You")
+/** Which feed tab is open, and a saved item to start on (set from the library's "Watch"). */
+object FeedNav {
+    const val SAVED = 0
+    const val FOLLOWING = 1
+    const val FOR_YOU = 2
+    var tab by mutableIntStateOf(FOR_YOU)
+    var open by mutableStateOf(false)
+    var startKey by mutableStateOf<String?>(null)
+
+    /** Watch a saved video (or sound) in the Saved feed. */
+    fun watch(s: Sound) {
+        startKey = s.key
+        tab = SAVED
+        open = true
+    }
+}
+
+private val TABS = listOf("Saved", "Following", "For You")
+
+/** Burn-in protection: how much to show the feed's buttons and text, and how far to shift them. */
+private data class Look(val ui: Float, val dx: Dp, val dy: Dp)
 
 /**
- * The TikTok-style feed: one saved sound or video per screen, swipe up for the next. Saved videos
- * show themselves; saved sounds show a video that uses them when one can be found (otherwise a
- * spinning record). The video is muted: the sound plays through the normal player, so the lock
- * screen, background play and looping all work the same. Tabs: Videos, Sounds, For You (both).
+ * The feed, like TikTok: For You and Following are your real TikTok feeds, as videos with their
+ * own sound; Saved is your saved sounds and videos. Tabs on top, settings on the right.
+ */
+@Composable
+fun FeedScreen(onSync: () -> Unit, onSettings: () -> Unit) {
+    var shift by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Settings.burnIn, Settings.shiftUi) {
+        while (Settings.burnIn && Settings.shiftUi) { delay(60_000); shift = (shift + 1) % 8 }
+    }
+    val on = Settings.burnIn && Settings.shiftUi
+    val look = Look(
+        if (Settings.burnIn) Settings.uiVisibility else 1f,
+        if (on) listOf(0, 3, 5, 3, 0, -3, -5, -3)[shift].dp else 0.dp,
+        if (on) listOf(-3, -5, -3, 0, 3, 5, 3, 0)[shift].dp else 0.dp,
+    )
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        when (FeedNav.tab) {
+            FeedNav.SAVED -> SavedFeed(onSync, look)
+            FeedNav.FOLLOWING -> LiveFeed("https://www.tiktok.com/following", look)
+            else -> LiveFeed("https://www.tiktok.com/foryou", look)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(top = 6.dp).offset(look.dx, look.dy).alpha(look.ui),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Spacer(Modifier.width(48.dp))
+            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
+                TABS.forEachIndexed { i, name ->
+                    Column(
+                        Modifier.clickable { FeedNav.tab = i }.padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            name, color = if (FeedNav.tab == i) Color.White else Color.White.copy(alpha = 0.6f),
+                            style = MaterialTheme.typography.titleMedium, fontWeight = if (FeedNav.tab == i) FontWeight.Bold else FontWeight.Normal,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Box(Modifier.width(22.dp).height(2.dp).background(if (FeedNav.tab == i) Color.White else Color.Transparent))
+                    }
+                }
+            }
+            IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White) }
+        }
+    }
+}
+
+@OptIn(UnstableApi::class)
+private fun videoPlayer(context: android.content.Context): ExoPlayer {
+    val http = DefaultHttpDataSource.Factory().setUserAgent(VideoResolver.USER_AGENT).setAllowCrossProtocolRedirects(true)
+    val withCookies = ResolvingDataSource.Factory(http) { spec -> spec.withAdditionalHeaders(VideoResolver.headers(spec.uri.toString())) }
+    return ExoPlayer.Builder(context).setMediaSourceFactory(DefaultMediaSourceFactory(withCookies)).build()
+}
+
+/** Videos from your TikTok feeds, kept while the app runs so coming back doesn't start empty. */
+private object LiveFeeds {
+    val lists = HashMap<String, androidx.compose.runtime.snapshots.SnapshotStateList<Sound>>()
+    fun of(url: String) = lists.getOrPut(url) { mutableStateListOf() }
+    var speed by mutableFloatStateOf(1f)
+}
+
+/**
+ * A TikTok feed (For You / Following), played as videos with their own sound. The real TikTok
+ * page is open behind it (out of sight, its videos paused) and loads the feed; its videos are
+ * picked up as they arrive, and it's scrolled for more as you get near the end.
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun FeedScreen(onSync: () -> Unit, onSettings: () -> Unit) {
+private fun LiveFeed(url: String, look: Look) {
+    val context = LocalContext.current
+    val items = remember(url) { LiveFeeds.of(url) }
+    val player = remember { videoPlayer(context).apply { repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF } }
+    var shownKey by remember { mutableStateOf<String?>(null) }
+    var loadedKey by remember { mutableStateOf<String?>(null) }
+    var playing by remember { mutableStateOf(true) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    var waited by remember { mutableIntStateOf(0) }
+    val pager = rememberPagerState { items.size }
+
+    DisposableEffect(player) {
+        PlayerConnection.pause() // one sound at a time
+        val l = object : Player.Listener {
+            override fun onRenderedFirstFrame() { shownKey = loadedKey }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying || player.playWhenReady }
+        }
+        player.addListener(l)
+        onDispose { player.removeListener(l); player.release() }
+    }
+    LaunchedEffect(Settings.loop) { player.repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF }
+    LaunchedEffect(LiveFeeds.speed) { player.setPlaybackSpeed(LiveFeeds.speed) }
+    LaunchedEffect(player) {
+        while (true) {
+            delay(200)
+            val d = player.duration
+            progress = if (d > 0) (player.currentPosition.toFloat() / d).coerceIn(0f, 1f) else 0f
+            if (player.playbackState == Player.STATE_ENDED && !Settings.loop && pager.currentPage < items.size - 1) pager.animateScrollToPage(pager.currentPage + 1)
+            if (items.isEmpty()) waited++
+        }
+    }
+    LaunchedEffect(pager, items.size > 0) {
+        snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
+            val s = items.getOrNull(page) ?: return@collect
+            if (loadedKey == s.key) return@collect
+            loadedKey = s.key; shownKey = null
+            PlayerConnection.pause()
+            player.setMediaItem(MediaItem.fromUri(s.videoUrl ?: return@collect))
+            player.prepare()
+            player.playWhenReady = true
+        }
+    }
+
+    // The TikTok page, behind everything; scrolled when fewer than 5 videos are left.
+    val needMore = items.size - pager.currentPage < 6
+    LiveFeedWeb(url, needMore, Modifier.fillMaxSize()) { found ->
+        val have = items.map { it.key }.toHashSet()
+        items.addAll(found.filter { it.key !in have })
+    }
+
+    if (items.isEmpty()) {
+        Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+                CircularProgressIndicator(color = Accent)
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    if (waited < 100) "Loading your feed…"
+                    else "Still nothing. Log in to TikTok first: Home › TikTok › Open.",
+                    color = Color.Gray,
+                )
+            }
+        }
+        return
+    }
+    VerticalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { items[it].key }) { page ->
+        val s = items[page]
+        val current = page == pager.settledPage
+        FeedPage(
+            s, if (shownKey == s.key) player else null, look, live = true,
+            current = current, playing = current && playing, progress = if (current) progress else 0f,
+            onToggle = { if (player.playWhenReady) player.pause() else player.play(); playing = player.playWhenReady },
+            speed = LiveFeeds.speed, onSpeed = { LiveFeeds.speed = it },
+        )
+    }
+}
+
+/**
+ * Your saved sounds and videos, newest first. Saved videos show themselves; saved sounds show a
+ * video that uses them when one can be found (Settings › Videos in the feed), otherwise a
+ * spinning record. The video is muted: the sound plays through the normal player, so the lock
+ * screen, background play and looping all work the same.
+ */
+@OptIn(UnstableApi::class)
+@Composable
+private fun SavedFeed(onSync: () -> Unit, look: Look) {
     val state by Library.state.collectAsState()
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableIntStateOf(2) }
     // Newest saves first; pages are keyed, so new ones arriving don't move you.
-    val feed = remember(state.sounds.size, tab, Settings.feedVideos) {
-        state.sounds.filter {
-            when (tab) {
-                0 -> it.video
-                1 -> !it.video
-                else -> !it.video || Settings.feedVideos
-            }
-        }.sortedByDescending { it.addedAt }
-    }
+    val feed = remember(state.sounds.size) { state.sounds.sortedByDescending { it.addedAt } }
     val byKey = remember(state.sounds) { state.sounds.associateBy { it.key } }
 
-    val video = remember {
-        val http = DefaultHttpDataSource.Factory().setUserAgent(VideoResolver.USER_AGENT).setAllowCrossProtocolRedirects(true)
-        val withCookies = ResolvingDataSource.Factory(http) { spec -> spec.withAdditionalHeaders(VideoResolver.headers(spec.uri.toString())) }
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(withCookies))
-            .build().apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE }
-    }
+    val video = remember { videoPlayer(context).apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE } }
     var videoKey by remember { mutableStateOf<String?>(null) }   // whose video is loaded
     var shownKey by remember { mutableStateOf<String?>(null) }   // whose video has a first frame
     DisposableEffect(video) {
@@ -135,96 +290,76 @@ fun FeedScreen(onSync: () -> Unit, onSettings: () -> Unit) {
     LaunchedEffect(PlayerConnection.isPlaying) { video.playWhenReady = PlayerConnection.isPlaying }
     LaunchedEffect(PlayerConnection.speed) { video.setPlaybackSpeed(PlayerConnection.speed) }
 
-    // Burn-in protection: shift the buttons and text a little every minute.
-    var shift by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Settings.burnIn, Settings.shiftUi) {
-        while (Settings.burnIn && Settings.shiftUi) { delay(60_000); shift = (shift + 1) % 8 }
+    if (feed.isEmpty()) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Filled.MusicNote, null, tint = Accent, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(12.dp))
+                Text("Nothing saved yet", color = Color.White, style = MaterialTheme.typography.titleLarge)
+                Text("Sync your saved TikTok or Instagram sounds and videos", color = Color.Gray)
+                Spacer(Modifier.height(16.dp))
+                Text("Sync now", color = Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onSync).padding(8.dp))
+            }
+        }
+        return
     }
-    val dx = if (Settings.burnIn && Settings.shiftUi) listOf(0, 3, 5, 3, 0, -3, -5, -3)[shift].dp else 0.dp
-    val dy = if (Settings.burnIn && Settings.shiftUi) listOf(-3, -5, -3, 0, 3, 5, 3, 0)[shift].dp else 0.dp
-    val ui = if (Settings.burnIn) Settings.uiVisibility else 1f
+    val wanted = FeedNav.startKey ?: PlayerConnection.currentKey
+    val start = feed.indexOfFirst { it.key == wanted }.coerceAtLeast(0)
+    val pager = rememberPagerState(initialPage = start) { feed.size }
+    LaunchedEffect(Unit) { FeedNav.startKey = null }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
-        if (feed.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.MusicNote, null, tint = Accent, modifier = Modifier.size(48.dp))
-                    Spacer(Modifier.height(12.dp))
-                    Text(if (tab == 0) "No saved videos yet" else "Nothing here yet", color = Color.White, style = MaterialTheme.typography.titleLarge)
-                    Text("Sync your saved TikTok or Instagram sounds and videos", color = Color.Gray)
-                    Spacer(Modifier.height(16.dp))
-                    Text("Sync now", color = Accent, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onSync).padding(8.dp))
+    // Play what's on screen and find its video.
+    LaunchedEffect(pager, feed) {
+        snapshotFlow { pager.settledPage }.distinctUntilChanged().collectLatest { page ->
+            val s = feed.getOrNull(page) ?: return@collectLatest
+            if (PlayerConnection.currentKey != s.key) PlayerConnection.play(feed, s)
+            PlayerConnection.setLoop(if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL)
+            if (videoKey != s.key) {
+                video.stop(); video.clearMediaItems(); videoKey = s.key; shownKey = null
+                val url = if (Settings.feedVideos || s.video) VideoResolver.videoFor(s) else null
+                if (url != null && videoKey == s.key) {
+                    video.setMediaItem(MediaItem.fromUri(url))
+                    video.prepare()
+                    video.playWhenReady = PlayerConnection.isPlaying
                 }
             }
-        } else {
-            val start = feed.indexOfFirst { it.key == PlayerConnection.currentKey }.coerceAtLeast(0)
-            val pager = rememberPagerState(initialPage = start) { feed.size }
-
-            // Play what's on screen and find its video.
-            LaunchedEffect(pager, feed) {
-                snapshotFlow { pager.settledPage }.distinctUntilChanged().collectLatest { page ->
-                    val s = feed.getOrNull(page) ?: return@collectLatest
-                    if (PlayerConnection.currentKey != s.key) PlayerConnection.play(feed, s)
-                    PlayerConnection.setLoop(if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL)
-                    if (videoKey != s.key) {
-                        video.stop(); video.clearMediaItems(); videoKey = s.key; shownKey = null
-                        val url = if (Settings.feedVideos || s.video) VideoResolver.videoFor(s) else null
-                        if (url != null && videoKey == s.key) {
-                            video.setMediaItem(MediaItem.fromUri(url))
-                            video.prepare()
-                            video.playWhenReady = PlayerConnection.isPlaying
-                        }
-                    }
-                    // Get the next one ready too.
-                    feed.getOrNull(page + 1)?.let { if (Settings.feedVideos || it.video) VideoResolver.videoFor(it) }
-                }
-            }
-            // Follow the player when it moves on by itself (loop off, notification).
-            LaunchedEffect(PlayerConnection.currentKey) {
-                val at = feed.indexOfFirst { it.key == PlayerConnection.currentKey }
-                if (at >= 0 && at != pager.currentPage) pager.animateScrollToPage(at)
-            }
-
-            VerticalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { feed[it].key }) { page ->
-                val s = byKey[feed[page].key] ?: feed[page]
-                FeedPage(s, if (shownKey == s.key) video else null, ui, dx, dy)
-            }
+            // Get the next one ready too.
+            feed.getOrNull(page + 1)?.let { if (Settings.feedVideos || it.video) VideoResolver.videoFor(it) }
         }
+    }
+    // Follow the player when it moves on by itself (loop off, notification).
+    LaunchedEffect(PlayerConnection.currentKey) {
+        val at = feed.indexOfFirst { it.key == PlayerConnection.currentKey }
+        if (at >= 0 && at != pager.currentPage) pager.animateScrollToPage(at)
+    }
 
-        // Tabs on top, like TikTok's Following / For You.
-        Row(
-            Modifier.fillMaxWidth().padding(top = 6.dp).offset(dx, dy).alpha(ui),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Spacer(Modifier.width(48.dp))
-            Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center) {
-                TABS.forEachIndexed { i, name ->
-                    Column(
-                        Modifier.clickable { tab = i }.padding(horizontal = 12.dp, vertical = 6.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(
-                            name, color = if (tab == i) Color.White else Color.White.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.titleMedium, fontWeight = if (tab == i) FontWeight.Bold else FontWeight.Normal,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Box(Modifier.width(22.dp).height(2.dp).background(if (tab == i) Color.White else Color.Transparent))
-                    }
-                }
-            }
-            IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White) }
-        }
+    VerticalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { feed[it].key }) { page ->
+        val s = byKey[feed[page].key] ?: feed[page]
+        val current = PlayerConnection.currentKey == s.key
+        FeedPage(
+            s, if (shownKey == s.key) video else null, look, live = false,
+            current = current, playing = current && PlayerConnection.isPlaying,
+            progress = if (current) PlayerConnection.position.toFloat() / PlayerConnection.duration.coerceAtLeast(1) else 0f,
+            onToggle = { if (current) PlayerConnection.toggle() },
+            speed = PlayerConnection.speed, onSpeed = { PlayerConnection.setSpeedPitch(it, 1f) },
+        )
     }
 }
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun FeedPage(s: Sound, video: ExoPlayer?, ui: Float, dx: Dp, dy: Dp) {
-    val current = PlayerConnection.currentKey == s.key
-    val playing = current && PlayerConnection.isPlaying
+private fun FeedPage(
+    s: Sound, video: ExoPlayer?, look: Look, live: Boolean,
+    current: Boolean, playing: Boolean, progress: Float, onToggle: () -> Unit,
+    speed: Float, onSpeed: (Float) -> Unit,
+) {
+    val (ui, dx, dy) = look
     val context = LocalContext.current
     var playlistsMenu by remember { mutableStateOf(false) }
     val state by Library.state.collectAsState()
+    // A video from your feed is "saved" once it's in the library.
+    val inLibrary = state.sounds.firstOrNull { it.key == s.key }
+    val liked = inLibrary?.liked == true
     val name = s.artist.ifBlank { if (s.source == Source.TIKTOK) "tiktok" else "instagram" }
     val open = { s.pageUrl?.let { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } } }
 
@@ -234,7 +369,7 @@ private fun FeedPage(s: Sound, video: ExoPlayer?, ui: Float, dx: Dp, dy: Dp) {
     Box(
         Modifier.fillMaxSize().background(Color.Black).clickable(
             interactionSource = remember { MutableInteractionSource() }, indication = null,
-        ) { if (current) PlayerConnection.toggle() },
+        ) { onToggle() },
     ) {
         if (video != null) {
             // The video (muted; the sound plays through the player).
@@ -299,12 +434,15 @@ private fun FeedPage(s: Sound, video: ExoPlayer?, ui: Float, dx: Dp, dy: Dp) {
             Box(
                 Modifier.size(50.dp).clip(CircleShape).border(2.dp, Color.White, CircleShape).clickable { open() },
             ) { Cover(s.cover, 50.dp, s.source, 25.dp) }
-            RailButton(Icons.Filled.Favorite, if (s.liked) "Liked" else "Like", if (s.liked) Accent else Color.White) {
-                Library.toggleLike(s.key)
+            RailButton(Icons.Filled.Favorite, if (liked) "Liked" else "Like", if (liked) Accent else Color.White) {
+                if (inLibrary == null) saveToLibrary(context, s.copy(liked = true)) else Library.toggleLike(s.key)
             }
             Box {
-                val saved = state.playlists.any { s.key in it.keys }
-                RailButton(Icons.Filled.Bookmark, "Save", if (saved) Color(0xFFFFC83D) else Color.White) { playlistsMenu = true }
+                val saved = if (live) inLibrary != null else state.playlists.any { s.key in it.keys }
+                RailButton(Icons.Filled.Bookmark, if (live && saved) "Saved" else "Save", if (saved) Color(0xFFFFC83D) else Color.White) {
+                    // From your feed: save it to the library first; then playlists.
+                    if (live && inLibrary == null) saveToLibrary(context, s) else playlistsMenu = true
+                }
                 DropdownMenu(expanded = playlistsMenu, onDismissRequest = { playlistsMenu = false }) {
                     state.playlists.forEach { p ->
                         val inIt = s.key in p.keys
@@ -326,21 +464,25 @@ private fun FeedPage(s: Sound, video: ExoPlayer?, ui: Float, dx: Dp, dy: Dp) {
                     runCatching { context.startActivity(Intent.createChooser(send, null)) }
                 }
             }
-            RailButton(Icons.Filled.Speed, speedLabel(PlayerConnection.speed), if (PlayerConnection.speed != 1f) Accent else Color.White) {
-                val next = when (PlayerConnection.speed) { 1f -> 1.5f; 1.5f -> 2f; else -> 1f }
-                PlayerConnection.setSpeedPitch(next, 1f)
+            RailButton(Icons.Filled.Speed, speedLabel(speed), if (speed != 1f) Accent else Color.White) {
+                onSpeed(when (speed) { 1f -> 1.5f; 1.5f -> 2f; else -> 1f })
             }
             Record(s, 46.dp, if (playing) angle else 0f, Modifier)
         }
 
         // Progress along the bottom edge.
         if (current) {
-            val d = PlayerConnection.duration.coerceAtLeast(1)
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(2.dp).alpha(ui).background(Color(0x33FFFFFF))) {
-                Box(Modifier.fillMaxWidth((PlayerConnection.position.toFloat() / d).coerceIn(0f, 1f)).height(2.dp).background(Color.White))
+                Box(Modifier.fillMaxWidth(progress.coerceIn(0f, 1f)).height(2.dp).background(Color.White))
             }
         }
     }
+}
+
+/** Adds a video from your feed to the library, and downloads its sound for offline. */
+private fun saveToLibrary(context: android.content.Context, s: Sound) {
+    val fresh = Library.addAll(listOf(s.copy(addedAt = System.currentTimeMillis())))
+    SyncService.enqueue(context, fresh.map { it.key })
 }
 
 /** A record with the cover in the middle, turned by [angle]. */
