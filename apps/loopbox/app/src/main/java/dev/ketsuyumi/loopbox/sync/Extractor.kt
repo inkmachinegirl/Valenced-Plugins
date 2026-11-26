@@ -1,5 +1,6 @@
 package dev.ketsuyumi.loopbox.sync
 
+import dev.ketsuyumi.loopbox.data.Settings
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
 import org.json.JSONArray
@@ -90,17 +91,10 @@ object Extractor {
         )
     }
 
-    /** A TikTok video post: {id, desc, author, video: {playAddr, cover}, music}. */
+    /** A TikTok video post: {id, desc, author, video: {playAddr, cover, bitrateInfo}, music, stats, ...}. */
     private fun tiktokVideo(o: JSONObject): Sound? {
         val video = o.optJSONObject("video") ?: return null
-        // Settings › Force H.264: the H.264 copy from bitrateInfo when there is one.
-        val h264 = if (!runCatching { dev.ketsuyumi.loopbox.data.Settings.forceH264 }.getOrDefault(false)) null
-        else video.optJSONArray("bitrateInfo")?.let { list ->
-            (0 until list.length()).mapNotNull { list.optJSONObject(it) }
-                .firstOrNull { it.optString("CodecType").contains("h264", ignoreCase = true) }
-                ?.let { urlOf(it.opt("PlayAddr")) }
-        }
-        val play = h264 ?: urlOf(video.opt("playAddr")) ?: urlOf(video.opt("play_addr")) ?: urlOf(video.opt("downloadAddr")) ?: return null
+        val play = pickVariant(video) ?: urlOf(video.opt("playAddr")) ?: urlOf(video.opt("play_addr")) ?: urlOf(video.opt("downloadAddr")) ?: return null
         val id = o.optString("id").ifBlank { o.optString("aweme_id") }.takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: return null
         val author = o.optJSONObject("author")
         val user = author?.optString("uniqueId")?.ifBlank { author.optString("unique_id") } ?: o.optString("author")
@@ -109,6 +103,9 @@ object Extractor {
         val audio = music?.let { urlOf(it.opt("playUrl")) ?: urlOf(it.opt("play_url")) } ?: play
         val cover = urlOf(video.opt("cover")) ?: urlOf(video.opt("originCover")) ?: urlOf(video.opt("origin_cover"))
             ?: music?.let { urlOf(it.opt("coverLarge")) ?: urlOf(it.opt("cover_large")) }
+        val stats = o.optJSONObject("statsV2") ?: o.optJSONObject("stats")
+        fun count(vararg k: String) = k.firstNotNullOfOrNull { stats?.opt(it)?.toString()?.toLongOrNull() } ?: -1L
+        val created = o.optString("createTime").ifBlank { o.optString("create_time") }.toLongOrNull() ?: 0L
         return Sound(
             key = "ttv:$id",
             source = Source.TIKTOK,
@@ -119,7 +116,47 @@ object Extractor {
             pageUrl = "https://www.tiktok.com/@${user.ifBlank { "_" }}/video/$id",
             video = true,
             videoUrl = play,
+            postedAt = created * 1000,
+            region = o.optString("locationCreated").ifBlank { o.optString("region") }.takeIf { it.length == 2 },
+            user = user.ifBlank { null },
+            likes = count("diggCount", "digg_count"),
+            comments = count("commentCount", "comment_count"),
+            saves = count("collectCount", "collect_count"),
+            shares = count("shareCount", "share_count"),
+            flags = tiktokFlags(o, author),
         )
+    }
+
+    /** What kind of post it is, for the feed filters. */
+    private fun tiktokFlags(o: JSONObject, author: JSONObject?): Set<String> = buildSet {
+        fun yes(k: String) = o.opt(k).let { it == true || (it is Number && it.toInt() != 0) || (it is String && it.isNotBlank() && it != "0" && it != "false") }
+        if (yes("isAd") || o.has("adInfo") || o.has("ad_info") || yes("is_ads")) add("ad")
+        if (o.has("liveRoomInfo") || yes("isLive")) add("live")
+        if (o.has("imagePost") || o.has("image_post_info")) add("photo")
+        if (yes("aigcLabelType") || yes("AIGCDescription") || yes("aigcDescription") || yes("isAigc")) add("ai")
+        if (yes("isECVideo") || o.has("productInfo") || o.optJSONArray("anchors")?.toString()?.contains("shop", ignoreCase = true) == true) add("shop")
+        if (yes("isPaidPartnership") || yes("brandOrganicType") || yes("branded_content_type")) add("paid")
+        if (o.has("seriesInfo") || yes("isSeries") || o.has("series")) add("series")
+        if (yes("isSubscriberOnly") || yes("subscriberOnly") || o.has("subscribeInfo")) add("subscriber")
+        if (author?.optBoolean("verified") == true) add("verified")
+    }
+
+    /**
+     * The copy to play from video.bitrateInfo: Settings › video quality (lowest / highest bitrate)
+     * and Force H.264. Null: the default playAddr.
+     */
+    private fun pickVariant(video: JSONObject): String? {
+        val list = video.optJSONArray("bitrateInfo") ?: return null
+        val all = (0 until list.length()).mapNotNull { list.optJSONObject(it) }.filter { urlOf(it.opt("PlayAddr")) != null }
+        if (all.isEmpty()) return null
+        val (h264, quality) = runCatching { Settings.forceH264 to Settings.quality }.getOrDefault(false to "auto")
+        val pool = if (h264) all.filter { it.optString("CodecType").contains("h264", ignoreCase = true) }.ifEmpty { all } else all
+        val chosen = when (quality) {
+            "saver" -> pool.minByOrNull { it.optLong("Bitrate") }
+            "best" -> pool.maxByOrNull { it.optLong("Bitrate") }
+            else -> if (h264 && pool !== all) pool.first() else null
+        }
+        return chosen?.let { urlOf(it.opt("PlayAddr")) }
     }
 
     /** TikTok videos in a page or response, e.g. a sound's page (videos that use it). */

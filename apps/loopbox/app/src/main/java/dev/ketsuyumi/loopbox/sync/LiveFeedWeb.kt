@@ -5,6 +5,7 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.runtime.Composable
@@ -47,22 +48,33 @@ private const val FEED_JS = """
 /**
  * The real TikTok page for a feed ([url]: For You or Following), laid out behind the app's own
  * feed (covered by it, so it can't be seen or touched). Its feed requests are picked up by the
- * page script and their videos passed to [onVideos]. Liked/saved/profile lists are left out.
+ * page script (and the feed built into the page itself) and their videos passed to [onVideos].
+ * Liked/saved/profile lists are left out. [onStatus]: what the page is doing, for the loading screen.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onVideos: (List<Sound>) -> Unit) {
+fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (String) -> Unit = {}, onVideos: (List<Sound>) -> Unit) {
     val main = remember { Handler(Looper.getMainLooper()) }
     val deliver by rememberUpdatedState(onVideos)
+    val report by rememberUpdatedState(onStatus)
+    var page by remember { mutableStateOf("") }
+    var responses by remember { mutableStateOf(0) }
+    var videos by remember { mutableStateOf(0) }
+    fun status() = report(
+        (if (page.isEmpty()) "Opening TikTok…" else "Page: " + page.removePrefix("https://").removePrefix("www.").substringBefore('?').take(40)) +
+            " · $responses response${if (responses == 1) "" else "s"} · $videos video${if (videos == 1) "" else "s"}",
+    )
     var web by remember { mutableStateOf<WebView?>(null) }
     val bridge = remember {
         object {
             @JavascriptInterface
             fun found(text: String, page: String, from: String): Boolean {
                 val f = from.lowercase()
-                if (!f.startsWith("http") || "collect" in f || "favorite" in f || "/post/" in f) return true
-                val videos = Extractor.extractAll(Source.TIKTOK, text, page).second
-                if (videos.isNotEmpty()) main.post { deliver(videos) }
+                main.post { responses++; status() }
+                // The feed comes from the site's requests, or is built into the page ("embedded").
+                if (!(f.startsWith("http") || f == "embedded") || "collect" in f || "favorite" in f || "/post/" in f) return true
+                val found = Extractor.extractAll(Source.TIKTOK, text, page).second
+                if (found.isNotEmpty()) main.post { videos += found.size; status(); deliver(found) }
                 return true
             }
 
@@ -84,6 +96,7 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onVideos: (List<
                 settings.mediaPlaybackRequiresUserGesture = true
                 settings.userAgentString = DESKTOP_UA
                 CookieManager.getInstance().setAcceptCookie(true)
+                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 addJavascriptInterface(bridge, "LoopboxBridge")
                 val early = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
                 if (early) {
@@ -91,7 +104,14 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onVideos: (List<
                     WebViewCompat.addDocumentStartJavaScript(this, FEED_JS, setOf("*"))
                 }
                 webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = Telemetry.block(request)
+
+                    override fun onPageStarted(view: WebView, u: String, favicon: android.graphics.Bitmap?) {
+                        page = u; status()
+                    }
+
                     override fun onPageFinished(view: WebView, u: String) {
+                        page = u; status()
                         if (!early) { view.evaluateJavascript(CAPTURE_JS, null); view.evaluateJavascript(FEED_JS, null) }
                         view.evaluateJavascript("window.__loopboxMore && window.__loopboxMore($more)", null)
                     }

@@ -32,7 +32,7 @@ class PlaybackService : MediaSessionService() {
             .build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                mediaItem?.mediaId?.let { Library.played(it) }
+                if (!dev.ketsuyumi.loopbox.data.Settings.noHistory) mediaItem?.mediaId?.let { Library.played(it) }
             }
         })
         session = MediaSession.Builder(this, player).build()

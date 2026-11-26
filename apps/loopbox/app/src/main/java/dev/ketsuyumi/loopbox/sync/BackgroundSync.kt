@@ -7,6 +7,7 @@ import android.os.Looper
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
@@ -84,6 +85,8 @@ class BackgroundSync(
         if (early) WebViewCompat.addDocumentStartJavaScript(w, CAPTURE_JS, setOf("*"))
         var begun = false
         w.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = Telemetry.block(request)
+
             override fun onPageFinished(view: WebView, url: String) {
                 if (!early) view.evaluateJavascript(CAPTURE_JS, null)
                 if (begun) return

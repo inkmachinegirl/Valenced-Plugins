@@ -29,6 +29,17 @@ data class Sound(
     val liked: Boolean = false,
     val video: Boolean = false,
     val videoUrl: String? = null,
+    /** Video posts: when it was posted (ms), the country it was posted from, @username. */
+    val postedAt: Long = 0,
+    val region: String? = null,
+    val user: String? = null,
+    /** Video posts: counts, -1 when unknown. */
+    val likes: Long = -1,
+    val comments: Long = -1,
+    val saves: Long = -1,
+    val shares: Long = -1,
+    /** Video posts: what kind it is, for the feed filters (ad, ai, shop, paid, series, subscriber, verified, photo, live). Not saved. */
+    val flags: Set<String> = emptySet(),
 )
 
 data class Playlist(val id: String, val name: String, val keys: List<String>)
@@ -91,6 +102,8 @@ object Library {
     }
 
     fun played(key: String) = update { s -> s.copy(recent = (listOf(key) + (s.recent - key)).take(50)) }
+
+    fun clearRecent() = update { it.copy(recent = emptyList()) }
 
     fun createPlaylist(name: String): Playlist {
         val p = Playlist("p" + System.currentTimeMillis().toString(36), name.ifBlank { "New playlist" }, emptyList())
@@ -159,6 +172,10 @@ object Library {
                     put("file", x.file ?: JSONObject.NULL); put("addedAt", x.addedAt); put("liked", x.liked)
                     if (x.video) put("video", true)
                     if (x.videoUrl != null) put("videoUrl", x.videoUrl)
+                    if (x.postedAt > 0) put("postedAt", x.postedAt)
+                    if (x.region != null) put("region", x.region)
+                    if (x.user != null) put("user", x.user)
+                    if (x.likes >= 0) { put("likes", x.likes); put("comments", x.comments); put("saves", x.saves); put("shares", x.shares) }
                 })
             }
         })
@@ -196,6 +213,11 @@ object Library {
                     liked = o.optBoolean("liked"),
                     video = o.optBoolean("video"),
                     videoUrl = o.optStringOrNull("videoUrl"),
+                    postedAt = o.optLong("postedAt"),
+                    region = o.optStringOrNull("region"),
+                    user = o.optStringOrNull("user"),
+                    likes = o.optLong("likes", -1), comments = o.optLong("comments", -1),
+                    saves = o.optLong("saves", -1), shares = o.optLong("shares", -1),
                 )
             }
         } ?: emptyList()

@@ -44,6 +44,9 @@ object PlayerConnection {
                 override fun onEvents(player: Player, events: Player.Events) = sync()
             })
             sync()
+            // Settings › Remember playback speed.
+            val sp = dev.ketsuyumi.loopbox.data.Settings.speed
+            if (dev.ketsuyumi.loopbox.data.Settings.rememberSpeed && sp != 1f) c.playbackParameters = PlaybackParameters(sp, 1f)
         }, ContextCompat.getMainExecutor(context))
     }
 

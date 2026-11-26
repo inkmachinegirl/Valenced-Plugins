@@ -7,6 +7,12 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
+import android.view.WindowManager
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.ui.Alignment
+import dev.ketsuyumi.loopbox.ui.Background
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -66,12 +72,22 @@ class MainActivity : ComponentActivity() {
         PlayerConnection.connect(this)
         if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
 
+        // Draw behind the system bars (Settings › Extend video behind status bar), with light icons.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
+
         setContent {
             MaterialTheme(colorScheme = LoopboxColors) {
                 var tab by rememberSaveable { mutableStateOf(0) }
                 var nowPlaying by remember { mutableStateOf(false) }
                 var sync by remember { mutableStateOf<Pair<Source, Boolean>?>(null) }
                 var settings by remember { mutableStateOf(false) }
+                // Settings › Feed › Start on.
+                LaunchedEffect(Unit) {
+                    FeedNav.tab = when (Settings.startTab) { "saved" -> FeedNav.SAVED; "following" -> FeedNav.FOLLOWING; else -> FeedNav.FOR_YOU }
+                }
                 // The library's Watch: go to the feed.
                 LaunchedEffect(FeedNav.open) {
                     if (FeedNav.open) { tab = 0; nowPlaying = false; settings = false; FeedNav.open = false }
@@ -83,45 +99,65 @@ class MainActivity : ComponentActivity() {
                     bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     if (hideBars) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
                 }
+                // Settings › Privacy › Allow screenshots and screen recording.
+                LaunchedEffect(Settings.allowScreenshots) {
+                    if (Settings.allowScreenshots) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    else window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
                 ProgressTicker()
 
-                Box(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding()) {
+                Box(Modifier.fillMaxSize().background(if (tab == 0 && sync == null && !settings && !nowPlaying) Color.Black else Background)) {
                     val open = sync
                     when {
-                        open != null -> SyncScreen(open.first, open.second, onClose = { sync = null })
-                        settings -> SettingsScreen(onClose = { settings = false })
-                        nowPlaying -> {
+                        open != null -> Box(Modifier.safeDrawingPadding()) { SyncScreen(open.first, open.second, onClose = { sync = null }) }
+                        settings -> Box(Modifier.safeDrawingPadding()) { SettingsScreen(onClose = { settings = false }) }
+                        nowPlaying -> Box(Modifier.safeDrawingPadding()) {
                             BackHandler { nowPlaying = false }
                             NowPlaying(onClose = { nowPlaying = false })
                         }
-                        else -> Column(Modifier.fillMaxSize()) {
-                            Box(Modifier.weight(1f)) {
-                                when (tab) {
-                                    0 -> FeedScreen(onSync = { tab = 1 }, onSettings = { settings = true })
-                                    1 -> HomeScreen(onSettings = { settings = true }, onSync = { source, auto ->
-                                        // Sync now: in the background with a notification, once the list
-                                        // request is known; otherwise the sync page, to find it first.
-                                        if (auto && SyncService.syncNow(this@MainActivity, source)) {
-                                            Toast.makeText(this@MainActivity, "Syncing in the background, see the notification", Toast.LENGTH_SHORT).show()
-                                        } else sync = source to auto
-                                    })
-                                    2 -> LibraryScreen()
-                                    else -> PlaylistsScreen()
+                        else -> {
+                            val feed = tab == 0
+                            // Glass navigation: see-through, over the feed, which goes on behind it.
+                            val overNav = feed && Settings.glassNav
+                            val nav = @androidx.compose.runtime.Composable { m: Modifier ->
+                                NavigationBar(containerColor = if (overNav) Color(0x66000000) else Surface1, modifier = m) {
+                                    val colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = Color.White, selectedTextColor = Color.White,
+                                        indicatorColor = Accent.copy(alpha = 0.25f),
+                                        unselectedIconColor = Color.Gray, unselectedTextColor = Color.Gray,
+                                    )
+                                    val labels = !Settings.hideNavLabels
+                                    @androidx.compose.runtime.Composable
+                                    fun item(i: Int, icon: androidx.compose.ui.graphics.vector.ImageVector, name: String) = NavigationBarItem(
+                                        tab == i, { tab = i }, { Icon(icon, name) },
+                                        label = if (labels) ({ Text(name) }) else null, alwaysShowLabel = labels, colors = colors,
+                                    )
+                                    item(0, Icons.Filled.PlayCircle, "Feed")
+                                    item(1, Icons.Filled.Home, "Home")
+                                    item(2, Icons.Filled.LibraryMusic, "Library")
+                                    item(3, Icons.AutoMirrored.Filled.QueueMusic, "Playlists")
                                 }
                             }
-                            // The feed is its own player, so the mini player only shows on the Spotify side.
-                            if (tab != 0) MiniPlayer(onOpen = { nowPlaying = true })
-                            NavigationBar(containerColor = Surface1, modifier = Modifier.padding(top = 4.dp)) {
-                                val colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = Color.White, selectedTextColor = Color.White,
-                                    indicatorColor = Accent.copy(alpha = 0.25f),
-                                    unselectedIconColor = Color.Gray, unselectedTextColor = Color.Gray,
-                                )
-                                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.PlayCircle, null) }, label = { Text("For You") }, colors = colors)
-                                NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Home") }, colors = colors)
-                                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.LibraryMusic, null) }, label = { Text("Library") }, colors = colors)
-                                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) }, label = { Text("Playlists") }, colors = colors)
+                            Column(Modifier.fillMaxSize()) {
+                                Box(Modifier.weight(1f).then(if (feed && Settings.extendStatusBar) Modifier else Modifier.statusBarsPadding())) {
+                                    when (tab) {
+                                        0 -> FeedScreen(onSync = { tab = 1 }, onSettings = { settings = true })
+                                        1 -> HomeScreen(onSettings = { settings = true }, onSync = { source, auto ->
+                                            // Sync now: in the background with a notification; the sync page
+                                            // the first time, to log in.
+                                            if (auto && SyncService.syncNow(this@MainActivity, source)) {
+                                                Toast.makeText(this@MainActivity, "Syncing in the background, see the notification", Toast.LENGTH_SHORT).show()
+                                            } else sync = source to auto
+                                        })
+                                        2 -> LibraryScreen()
+                                        else -> PlaylistsScreen()
+                                    }
+                                }
+                                // The feed is its own player, so the mini player only shows on the Spotify side.
+                                if (!feed) MiniPlayer(onOpen = { nowPlaying = true })
+                                if (!overNav) nav(Modifier)
                             }
+                            if (overNav) Box(Modifier.align(Alignment.BottomCenter)) { nav(Modifier) }
                         }
                     }
                 }

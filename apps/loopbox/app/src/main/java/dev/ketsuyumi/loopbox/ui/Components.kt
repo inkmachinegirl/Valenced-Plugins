@@ -45,27 +45,49 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Playlist
+import dev.ketsuyumi.loopbox.data.Settings
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.sync.Downloader
 import kotlinx.coroutines.launch
 
-val Accent = Color(0xFFFF4FD1)
-val Surface1 = Color(0xFF121212)
-val Surface2 = Color(0xFF1E1E1E)
+/** Settings › Appearance › Accent colour. */
+val Accent: Color get() = Color(Settings.accent)
 
-val LoopboxColors = darkColorScheme(
+/** Settings › Appearance › Dark theme style: the background and the two panel shades. */
+val Background: Color get() = when (Settings.theme) { "standard" -> Color(0xFF17171A); "dark" -> Color(0xFF0B0B0D); else -> Color.Black }
+val Surface1: Color get() = when (Settings.theme) { "standard" -> Color(0xFF242428); "dark" -> Color(0xFF16161A); else -> Color(0xFF121212) }
+val Surface2: Color get() = when (Settings.theme) { "standard" -> Color(0xFF303036); "dark" -> Color(0xFF212126); else -> Color(0xFF1E1E1E) }
+
+val LoopboxColors get() = darkColorScheme(
     primary = Accent,
     onPrimary = Color.Black,
     secondary = Accent,
-    background = Color.Black,
+    background = Background,
     surface = Surface1,
     surfaceVariant = Surface2,
     onBackground = Color.White,
     onSurface = Color.White,
     onSurfaceVariant = Color(0xFFB3B3B3),
 )
+
+/** Opens a link: in the browser (Settings › Privacy › Open links in browser) or whatever app takes it. */
+fun openLink(context: android.content.Context, url: String) {
+    val view = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+    if (Settings.openInBrowser) view.selector = android.content.Intent.makeMainSelectorActivity(android.content.Intent.ACTION_MAIN, android.content.Intent.CATEGORY_APP_BROWSER)
+    runCatching { context.startActivity(view) }.onFailure {
+        view.selector = null
+        runCatching { context.startActivity(view) }
+    }
+}
+
+/** Shares a link, without tracking parameters (Settings › Privacy › Sanitize shared links). */
+fun shareLink(context: android.content.Context, url: String) {
+    val clean = if (Settings.sanitizeLinks) url.substringBefore('?').substringBefore('#') else url
+    val send = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, clean)
+    runCatching { context.startActivity(android.content.Intent.createChooser(send, null)) }
+}
 
 /** Cover art, or a gradient tile with a note when there's none. */
 @Composable

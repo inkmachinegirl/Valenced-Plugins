@@ -8,8 +8,8 @@ package dev.ketsuyumi.loopbox.sync
  *   following that list.
  * - Following a list: the saved list comes a page (~30) at a time. When a page says there's
  *   more, the next one is asked for straight away with the same request and the new cursor
- *   (old signatures dropped; the site's own script signs the new request). A refused page is
- *   retried with growing waits, then reported as "stuck".
+ *   (old signatures dropped; it's sent through the page's fetch, which the site's own script
+ *   signs). A refused page is retried with growing waits, then reported as "stuck".
  * - LoopboxBridge.paging(n) counts pages; LoopboxBridge.done(why) says a list ended ("end"),
  *   was cut short ("enough") or couldn't go on ("stuck:<status>").
  * - window.__loopboxList(url): follow a remembered list request from its first page.
@@ -49,20 +49,22 @@ internal val CAPTURE_JS = """
     try { LoopboxBridge.paging(Object.keys(paged).length); } catch(e){}
     setTimeout(function(){ get(u.toString(), 0); }, 700);
   }
+  // Asked for through window.fetch at call time: the site's own security script wraps fetch and
+  // signs its API requests (X-Bogus etc.); a plain XMLHttpRequest went out unsigned and was refused.
   function get(url, tries){
-    var x = new XMLHttpRequest(); x.open('GET', url); x.withCredentials = true;
+    var h = {};
     if (/instagram\.com/.test(location.host)) {
       var m = document.cookie.match(/csrftoken=([^;]+)/);
-      x.setRequestHeader('X-IG-App-ID', '936619743392459');
-      x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-      if (m) x.setRequestHeader('X-CSRFToken', m[1]);
+      h['X-IG-App-ID'] = '936619743392459'; h['X-Requested-With'] = 'XMLHttpRequest';
+      if (m) h['X-CSRFToken'] = m[1];
     }
-    x.addEventListener('loadend', function(){
-      if (x.status === 200 && KEYS.test(x.responseText || '')) return; // the send() hook took it
+    function retry(st){
       if (tries < 4) setTimeout(function(){ get(url, tries + 1); }, 2000 * Math.pow(2, tries));
-      else done('stuck:' + x.status);
-    });
-    x.send();
+      else done('stuck:' + st);
+    }
+    window.fetch(url, { credentials: 'include', headers: h })
+      .then(function(r){ return r.text().then(function(t){ return [r.status, t]; }); })
+      .then(function(a){ if (!(a[0] === 200 && KEYS.test(a[1] || ''))) retry(a[0]); }, function(){ retry(0); });
   }
   window.__loopboxList = function(url){
     var u; try { u = new URL(url, location.href); } catch(e){ return; }

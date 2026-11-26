@@ -195,6 +195,8 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                         }
                         var drove = false
                         webViewClient = object : WebViewClient() {
+                            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest) = Telemetry.block(request)
+
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, err: WebResourceError) {
                                 if (request.isForMainFrame) error = "Couldn't load the page: ${err.description}. Tap reload."
                             }
