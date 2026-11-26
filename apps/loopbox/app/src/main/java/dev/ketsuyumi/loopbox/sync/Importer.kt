@@ -23,8 +23,8 @@ fun isProfilePage(source: Source, url: String): Boolean {
     }
 }
 
-/** Saved videos taken in one sync at most (TikTok favorites can be tens of thousands). */
-const val VIDEO_CAP = 1000
+/** Saved videos taken in one sync at most (Settings › Sync; TikTok favorites can be tens of thousands). */
+val videoCap: Int get() = when (dev.ketsuyumi.loopbox.data.Settings.videoCap) { "5000" -> 5000; "all" -> Int.MAX_VALUE; else -> 1000 }
 
 /**
  * Whether video posts from [from] on [page] are the user's saved ones: TikTok's Favorites
@@ -50,7 +50,7 @@ class Importer(private val context: Context, private val source: Source, private
     private val hadVideos = Library.state.value.sounds.any { it.video && it.source == source }
 
     fun take(text: String, page: String, from: String): Boolean {
-        val (s, v) = Extractor.extractAll(source, text, page)
+        val (s, v, vs) = Extractor.extractAll(source, text, page)
         var go = true
         if (s.isNotEmpty()) {
             if (onlySaved() && !isSavedList(source, page, from)) skipped += s.size
@@ -72,9 +72,20 @@ class Importer(private val context: Context, private val source: Source, private
                 val fresh = Library.addAll(v)
                 videos += fresh.size
                 SyncLog.add("${v.size} videos, ${fresh.size} new (${SyncLog.short(from)})")
+                // Settings › Sounds from saved videos: each saved video's sound goes in too.
+                var newSounds = 0
+                if (dev.ketsuyumi.loopbox.data.Settings.soundsFromVideos && vs.isNotEmpty()) {
+                    val freshSounds = Library.addAll(vs)
+                    newSounds = freshSounds.size
+                    sounds += freshSounds.size
+                    SyncService.addFound(freshSounds.size)
+                    SyncService.enqueue(context, freshSounds.map { it.key })
+                    if (freshSounds.isNotEmpty()) SyncLog.add("  their sounds: ${vs.size}, ${freshSounds.size} new")
+                }
                 SyncService.addFound(fresh.size)
                 // Newest first: a page with nothing new means the rest is known already.
-                if ((fresh.isEmpty() && hadVideos) || videos >= VIDEO_CAP) go = false
+                // (Still going while their sounds are new, e.g. the first sync with Sounds from saved videos.)
+                if ((fresh.isEmpty() && newSounds == 0 && hadVideos) || videos >= videoCap) go = false
             }
         }
         return go

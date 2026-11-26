@@ -48,6 +48,17 @@ class ExtractorTest {
         assertEquals("https://www.tiktok.com/@kiyo/video/7300000000000000001", v.pageUrl); assertEquals("Kiyo", v.artist)
     }
 
+    @Test fun savedVideosGiveTheirSounds() {
+        val json = """{"itemList":[{"id":"7300000000000000001","desc":"teto dance","author":{"uniqueId":"kiyo"},
+          "video":{"playAddr":"https://v/v.mp4","cover":"https://p16/cover.jpg"},
+          "music":{"id":"55","title":"Teto Territory","authorName":"Kasane Teto","playUrl":"https://x/p.mp3"}}]}"""
+        val found = Extractor.extractAll(Source.TIKTOK, json, null)
+        assertEquals(1, found.videoSounds.size)
+        assertEquals("tt:55", found.videoSounds[0].key)
+        assertEquals("Teto Territory", found.videoSounds[0].title)
+        assertEquals("https://p16/cover.jpg", found.videoSounds[0].cover)
+    }
+
     @Test fun instagramSavedReel() {
         val json = """{"items":[{"media":{"code":"ABC","user":{"username":"satou"},"caption":{"text":"hi"},
           "video_versions":[{"url":"https://ig/v.mp4"}],"image_versions2":{"candidates":[{"url":"https://ig/c.jpg"}]},

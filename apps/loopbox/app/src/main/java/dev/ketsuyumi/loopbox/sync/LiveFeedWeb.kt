@@ -73,7 +73,7 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (Strin
                 main.post { responses++; status() }
                 // The feed comes from the site's requests, or is built into the page ("embedded").
                 if (!(from.startsWith("http") || f == "embedded") || "collect" in f || "favorite" in f || "/post/" in f) return true
-                val found = Extractor.extractAll(Source.TIKTOK, text, page).second
+                val found = Extractor.extractAll(Source.TIKTOK, text, page).videos
                 if (found.isNotEmpty()) main.post { videos += found.size; status(); deliver(found) }
                 return true
             }

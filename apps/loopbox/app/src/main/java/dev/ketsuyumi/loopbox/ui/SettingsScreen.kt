@@ -205,6 +205,16 @@ private fun Feed() {
     Section("Saved") {
         Toggle("Videos for saved sounds", "Each saved sound shows a TikTok video that uses it. Uses more data", Settings::feedVideos)
     }
+    Section("Sync") {
+        Toggle(
+            "Sounds from saved videos", "The sound of every video you bookmarked is added to your sounds too, and downloaded for offline",
+            Settings::soundsFromVideos,
+        )
+        Choice(
+            "Saved videos per sync", "Newest first; later syncs only add new ones", Settings::videoCap,
+            listOf("1000" to "1,000 (default)", "5000" to "5,000", "all" to "All"),
+        )
+    }
 }
 
 @Composable

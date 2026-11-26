@@ -55,6 +55,12 @@ object Settings {
     /** In Saved, each saved sound shows a video that uses it. */
     var feedVideos by bool("feedVideos", true)
 
+    // ---- Sync ----
+    /** Each saved (bookmarked) video's sound is added to your sounds too, and downloaded. */
+    var soundsFromVideos by bool("soundsFromVideos", true)
+    /** Saved videos taken per sync: "1000", "5000" or "all". */
+    var videoCap by string("videoCap", "1000")
+
     // ---- Filters (For You and Following) ----
     var blockAds by bool("blockAds", true)
     var hideLive by bool("hideLive", true)

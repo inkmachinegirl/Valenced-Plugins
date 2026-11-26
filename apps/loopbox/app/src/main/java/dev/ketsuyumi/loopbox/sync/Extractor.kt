@@ -23,20 +23,39 @@ import org.json.JSONTokener
  */
 object Extractor {
 
-    /** Sounds only (video posts and their sounds are left out). */
-    fun extract(source: Source, text: String, pageUrl: String?): List<Sound> = extractAll(source, text, pageUrl).first
+    /**
+     * What a response or page holds: [sounds] (sound objects on their own, like a saved-sounds
+     * list), [videos] (video posts), and [videoSounds] (the sound each of those videos uses).
+     */
+    data class Found(val sounds: List<Sound>, val videos: List<Sound>, val videoSounds: List<Sound>)
 
-    /** Sounds, and video posts. */
-    fun extractAll(source: Source, text: String, pageUrl: String?): Pair<List<Sound>, List<Sound>> {
-        val root = parse(text) ?: return emptyList<Sound>() to emptyList()
+    /** Sounds only (video posts and their sounds are left out). */
+    fun extract(source: Source, text: String, pageUrl: String?): List<Sound> = extractAll(source, text, pageUrl).sounds
+
+    /** Sounds, video posts, and the sounds those videos use. */
+    fun extractAll(source: Source, text: String, pageUrl: String?): Found {
+        val root = parse(text) ?: return Found(emptyList(), emptyList(), emptyList())
         val sounds = LinkedHashMap<String, Sound>()
         val videos = LinkedHashMap<String, Sound>()
+        val videoSounds = LinkedHashMap<String, Sound>()
         walk(root, 0) { o ->
             val v = when (source) {
                 Source.TIKTOK -> tiktokVideo(o)
                 Source.INSTAGRAM -> instagramVideo(o)
             }
-            if (v != null) { videos.putIfAbsent(v.key, v); return@walk false }
+            if (v != null) {
+                videos.putIfAbsent(v.key, v)
+                // The video's sound, as a sound of its own (linked to its sound page).
+                val s = when (source) {
+                    Source.TIKTOK -> o.optJSONObject("music")?.let { tiktok(it, null) }
+                    Source.INSTAGRAM -> o.optJSONObject("clips_metadata")?.let { c ->
+                        (c.optJSONObject("music_info")?.optJSONObject("music_asset_info") ?: c.optJSONObject("original_sound_info"))
+                            ?.let { instagram(it, v.pageUrl) }
+                    }
+                }
+                if (s != null) videoSounds.putIfAbsent(s.key, s.copy(cover = s.cover ?: v.cover))
+                return@walk false
+            }
             val s = when (source) {
                 Source.TIKTOK -> tiktok(o, pageUrl)
                 Source.INSTAGRAM -> instagram(o, pageUrl)
@@ -44,7 +63,7 @@ object Extractor {
             if (s != null) sounds.putIfAbsent(s.key, s)
             true
         }
-        return sounds.values.toList() to videos.values.toList()
+        return Found(sounds.values.toList(), videos.values.toList(), videoSounds.values.toList())
     }
 
     private fun parse(text: String): Any? {
@@ -160,7 +179,7 @@ object Extractor {
     }
 
     /** TikTok videos in a page or response, e.g. a sound's page (videos that use it). */
-    fun tiktokVideos(text: String): List<Sound> = extractAll(Source.TIKTOK, text, null).second
+    fun tiktokVideos(text: String): List<Sound> = extractAll(Source.TIKTOK, text, null).videos
 
     // ---- Instagram ----
 
