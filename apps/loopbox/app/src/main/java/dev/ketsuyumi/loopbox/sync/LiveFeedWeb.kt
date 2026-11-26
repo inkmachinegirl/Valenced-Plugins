@@ -78,6 +78,9 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (Strin
                 return true
             }
 
+            @JavascriptInterface
+            fun log(m: String) = SyncLog.add(m)
+
             @JavascriptInterface fun paging(n: Int) {}
             @JavascriptInterface fun done(why: String) {}
         }

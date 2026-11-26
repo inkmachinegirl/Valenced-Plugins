@@ -52,6 +52,9 @@ class BackgroundSync(
         }
 
         @JavascriptInterface
+        fun log(m: String) = SyncLog.add(m)
+
+        @JavascriptInterface
         fun paging(n: Int) {
             main.post { pages++; lastNews = System.currentTimeMillis(); onPages(pages) }
         }
@@ -95,6 +98,7 @@ class BackgroundSync(
                 main.postDelayed({ beginList() }, 4000)
             }
         }
+        SyncLog.add("Background sync (${source.name.lowercase()}) started")
         val home = Library.state.value.syncPages[source] ?: when (source) {
             Source.TIKTOK -> "https://www.tiktok.com/profile"
             Source.INSTAGRAM -> "https://www.instagram.com/"
@@ -109,6 +113,7 @@ class BackgroundSync(
         lastNews = System.currentTimeMillis()
         val apis = Library.state.value.let { if (phase == Phase.SOUNDS) it.syncApis else it.videoApis }
         val api = apis[source]
+        SyncLog.add("— ${phase.name.lowercase()}: " + (api?.let { "remembered request " + SyncLog.short(it) } ?: "no remembered request, clicking through"))
         if (api != null) js("window.__loopboxList && window.__loopboxList(${JSONObject.quote(api)})")
         else drive()
     }
@@ -121,7 +126,7 @@ class BackgroundSync(
 
     private fun listEnded(stuck: Boolean) {
         if (ended) return
-        if (stuck && !drove) { drive(); return }
+        if (stuck && !drove) { SyncLog.add("site stopped answering, clicking through instead"); drive(); return }
         js("window.__loopboxScroll && window.__loopboxScroll(false)")
         if (phase == Phase.SOUNDS) { phase = Phase.VIDEOS; beginList() } else finish()
     }
@@ -133,7 +138,10 @@ class BackgroundSync(
             if (ended) return@postDelayed
             // Nothing new for a minute: this list is done (or can't be loaded).
             // If the remembered request went quiet, try clicking through first.
-            if (System.currentTimeMillis() - lastNews > 60_000) { if (!drove) drive() else listEnded(stuck = false) }
+            if (System.currentTimeMillis() - lastNews > 60_000) {
+                SyncLog.add("nothing new for a minute")
+                if (!drove) drive() else listEnded(stuck = false)
+            }
             watchdog()
         }, 5000)
     }
@@ -141,6 +149,7 @@ class BackgroundSync(
     fun finish() {
         if (ended) return
         ended = true
+        SyncLog.add("Sync finished: ${importer.sounds} new sounds, ${importer.videos} new videos")
         web?.stopLoading()
         web?.destroy()
         web = null

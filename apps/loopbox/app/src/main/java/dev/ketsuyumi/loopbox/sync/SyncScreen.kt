@@ -106,6 +106,9 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
     val bridge = remember {
         object {
             @JavascriptInterface
+            fun log(m: String) = SyncLog.add(m)
+
+            @JavascriptInterface
             fun paging(n: Int) {
                 main.post { pages = n }
             }

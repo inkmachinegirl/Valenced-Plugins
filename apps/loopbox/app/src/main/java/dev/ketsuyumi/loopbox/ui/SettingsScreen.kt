@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.ViewDay
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -58,6 +59,7 @@ import androidx.media3.common.Player
 import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Settings
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
+import dev.ketsuyumi.loopbox.sync.SyncLog
 import kotlin.reflect.KMutableProperty0
 
 private enum class Page(val title: String, val desc: String, val icon: ImageVector) {
@@ -66,6 +68,7 @@ private enum class Page(val title: String, val desc: String, val icon: ImageVect
     FILTERS("Filters", "Ads and what to hide in For You", Icons.Filled.FilterAlt),
     PLAYBACK("Playback", "Looping, speed, quality, display", Icons.Filled.PlayCircle),
     PRIVACY("Privacy", "Links, screenshots, tracking, history", Icons.Filled.Lock),
+    LOG("Sync log", "What the last syncs did, to copy and send", Icons.Filled.Sync),
 }
 
 private val ACCENTS = listOf(
@@ -110,6 +113,7 @@ fun SettingsScreen(onClose: () -> Unit) {
                 Page.FILTERS -> Filters()
                 Page.PLAYBACK -> Playback()
                 Page.PRIVACY -> Privacy()
+                Page.LOG -> Log()
             }
         }
     }
@@ -277,6 +281,35 @@ private fun Privacy() {
         Row(
             Modifier.fillMaxWidth().clickable { Library.clearRecent() }.padding(horizontal = 16.dp, vertical = 14.dp),
         ) { Text("Clear Recently played", color = Accent, style = MaterialTheme.typography.titleMedium) }
+    }
+}
+
+@Composable
+private fun Log() {
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
+    val lines = SyncLog.lines
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(
+            "Copy", color = Color.Black, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+            modifier = Modifier.clip(CircleShape).background(Accent)
+                .clickable { clipboard.setText(androidx.compose.ui.text.AnnotatedString(lines.joinToString("\n"))) }
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+        )
+        Text(
+            "Clear", color = Color.White,
+            modifier = Modifier.clip(CircleShape).background(Surface2).clickable { SyncLog.clear() }.padding(horizontal = 20.dp, vertical = 10.dp),
+        )
+    }
+    Hint("Tap Sync now, wait for it to finish, then Copy and send it. It shows each page asked for and what TikTok answered; no passwords or cookies.")
+    Section(null) {
+        if (lines.isEmpty()) Hint("Nothing yet. Run a sync.")
+        lines.forEach { l ->
+            Text(
+                l, color = Color(0xFFCFCFCF), style = MaterialTheme.typography.bodySmall,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
+            )
+        }
     }
 }
 

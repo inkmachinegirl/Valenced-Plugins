@@ -38,9 +38,11 @@ class Importer(private val context: Context, private val source: Source, private
         if (s.isNotEmpty()) {
             if (onlySaved() && !isSavedList(source, page, from)) skipped += s.size
             else {
-                if (from.startsWith("http")) Library.setSyncApi(source, from)
+                // Remember the first page's request: background syncs start from it.
+                if (from.startsWith("http") && SyncLog.firstPage(from)) Library.setSyncApi(source, from)
                 val fresh = Library.addAll(s)
                 sounds += fresh.size
+                SyncLog.add("${s.size} sounds, ${fresh.size} new (${SyncLog.short(from)})")
                 SyncService.addFound(fresh.size)
                 SyncService.enqueue(context, fresh.map { it.key })
             }
@@ -48,9 +50,11 @@ class Importer(private val context: Context, private val source: Source, private
         if (v.isNotEmpty()) {
             if (onlySaved() && !isSavedVideos(source, page, from)) skipped += v.size
             else {
-                if (from.startsWith("http")) Library.setVideoApi(source, from)
+                // Remember the first page's request: background syncs start from it.
+                if (from.startsWith("http") && SyncLog.firstPage(from)) Library.setVideoApi(source, from)
                 val fresh = Library.addAll(v)
                 videos += fresh.size
+                SyncLog.add("${v.size} videos, ${fresh.size} new (${SyncLog.short(from)})")
                 SyncService.addFound(fresh.size)
                 // Newest first: a page with nothing new means the rest is known already.
                 if ((fresh.isEmpty() && hadVideos) || videos >= VIDEO_CAP) go = false
