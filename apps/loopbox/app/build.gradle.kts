@@ -16,10 +16,20 @@ android {
         versionName = "1.0.0"
     }
 
+    // The key Loopbox 1.0.0 was signed with, kept here so every update installs over the old app
+    // (Android refuses updates signed with a different key). Standard debug-key passwords.
+    signingConfigs {
+        create("loopbox") {
+            storeFile = rootProject.file("signing/loopbox.jks")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("loopbox")
         }
     }
     compileOptions {
