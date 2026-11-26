@@ -74,15 +74,16 @@ private val CAPTURE_JS = """
 (function(){
   if (window.__loopbox) return; window.__loopbox = true;
   var KEYS = /playUrl|play_url|progressive_download_url/;
-  function send(t){ try { if (t && t.length < 8e6 && KEYS.test(t)) LoopboxBridge.found(t, location.href); } catch(e){} }
+  function send(t, from){ try { if (t && t.length < 8e6 && KEYS.test(t)) LoopboxBridge.found(t, location.href, from || ''); } catch(e){} }
   var f = window.fetch;
-  if (f) window.fetch = function(){ return f.apply(this, arguments).then(function(r){ try { r.clone().text().then(send); } catch(e){} return r; }); };
-  var o = XMLHttpRequest.prototype.open, s = XMLHttpRequest.prototype.send;
-  XMLHttpRequest.prototype.send = function(){ var x = this; x.addEventListener('load', function(){ try { if (!x.responseType || x.responseType === 'text') send(x.responseText); } catch(e){} }); return s.apply(this, arguments); };
+  if (f) window.fetch = function(input){ var u = typeof input === 'string' ? input : (input && input.url) || '';
+    return f.apply(this, arguments).then(function(r){ try { r.clone().text().then(function(t){ send(t, r.url || u); }); } catch(e){} return r; }); };
+  var s = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.send = function(){ var x = this; x.addEventListener('load', function(){ try { if (!x.responseType || x.responseType === 'text') send(x.responseText, x.responseURL); } catch(e){} }); return s.apply(this, arguments); };
   var seen = {};
   function scan(){
     var els = document.querySelectorAll('script[type="application/json"], script#__UNIVERSAL_DATA_FOR_REHYDRATION__, script#SIGI_STATE');
-    for (var i = 0; i < els.length; i++){ var t = els[i].textContent || ''; var k = t.length + ':' + t.slice(0, 64); if (!seen[k]) { seen[k] = 1; send(t); } }
+    for (var i = 0; i < els.length; i++){ var t = els[i].textContent || ''; var k = t.length + ':' + t.slice(0, 64); if (!seen[k]) { seen[k] = 1; send(t, 'embedded'); } }
   }
   document.addEventListener('DOMContentLoaded', scan); setInterval(scan, 3000);
   var timer = null;
@@ -100,6 +101,21 @@ private val CAPTURE_JS = """
  * The sync browser. [auto]: opened by "Sync now" on the page saved sounds were last found on,
  * scrolling by itself and importing new sounds as they appear.
  */
+/**
+ * Whether data from [from] (the request URL, or "embedded" for data in the page itself) on
+ * [page] is the user's saved sounds, not a feed. The For You page carries the music of every
+ * video in it, which isn't what was saved.
+ */
+fun isSavedList(source: Source, page: String, from: String): Boolean {
+    val p = page.lowercase()
+    val f = from.lowercase()
+    return when (source) {
+        Source.TIKTOK -> Regex("collect|favorite|favourite|music_list|musiclist|/music/list").containsMatchIn(f) ||
+            (f == "embedded" && ("favorite" in p || "/music/" in p))
+        Source.INSTAGRAM -> "/saved" in p || Regex("saved|collection|/audio/|music/").containsMatchIn(f)
+    }
+}
+
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
@@ -107,6 +123,8 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
     val found = remember { mutableStateListOf<Sound>() }
     var page by remember { mutableStateOf("") }
     var autoScroll by remember { mutableStateOf(auto) }
+    var onlySaved by remember { mutableStateOf(true) }
+    var skipped by remember { mutableStateOf(0) }
     var importing by remember { mutableStateOf(false) }
     var done by remember { mutableStateOf(0) }
     var failed by remember { mutableStateOf(0) }
@@ -132,10 +150,14 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
     val bridge = remember {
         object {
             @JavascriptInterface
-            fun found(text: String, url: String) {
+            fun found(text: String, url: String, from: String) {
                 val sounds = Extractor.extract(source, text, url)
                 if (sounds.isEmpty()) return
                 main.post {
+                    if (onlySaved && !isSavedList(source, url, from)) {
+                        skipped += sounds.size
+                        return@post
+                    }
                     val have = Library.state.value.sounds.map { it.key }.toSet()
                     val new = sounds.filter { it.key !in have && found.none { f -> f.key == it.key } }
                     if (new.isEmpty()) return@post
@@ -186,6 +208,13 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                         settings.javaScriptEnabled = true
                         settings.domStorageEnabled = true
                         settings.mediaPlaybackRequiresUserGesture = true
+                        // The desktop site (TikTok) is laid out wider than a phone; without these it
+                        // drew nothing visible.
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
+                        settings.setSupportZoom(true)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
                         if (source == Source.TIKTOK) settings.userAgentString = DESKTOP_UA
                         Downloader.userAgent = settings.userAgentString
                         CookieManager.getInstance().setAcceptCookie(true)
@@ -217,12 +246,17 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
         Column(Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(12.dp)) {
             if (importing) LinearProgressIndicator(Modifier.fillMaxWidth().padding(bottom = 8.dp))
             Text(
-                if (found.isNotEmpty()) "Found ${found.size} new sound${if (found.size == 1) "" else "s"}" else status,
+                if (found.isNotEmpty()) "Found ${found.size} new saved sound${if (found.size == 1) "" else "s"}" else status,
                 color = Color.White, style = MaterialTheme.typography.bodyMedium,
+            )
+            if (skipped > 0 && onlySaved) Text(
+                "Skipped $skipped from feeds (not saved). Open your saved sounds page.",
+                color = Color.Gray, style = MaterialTheme.typography.bodySmall,
             )
             Spacer(Modifier.padding(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                FilterChip(selected = autoScroll, onClick = { autoScroll = !autoScroll }, label = { Text("Auto-scroll & import") })
+                FilterChip(selected = autoScroll, onClick = { autoScroll = !autoScroll }, label = { Text("Auto") })
+                FilterChip(selected = onlySaved, onClick = { onlySaved = !onlySaved }, label = { Text("Only saved") })
                 Spacer(Modifier.weight(1f))
                 Button(enabled = found.isNotEmpty() && !importing, onClick = { import(found.toList()) }) {
                     Text(if (found.isEmpty()) "Import" else "Import ${found.size}")

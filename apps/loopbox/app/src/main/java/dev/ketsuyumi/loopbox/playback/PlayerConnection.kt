@@ -95,6 +95,10 @@ object PlayerConnection {
         }
     }
 
+    fun setLoop(mode: Int) {
+        controller?.repeatMode = mode
+    }
+
     fun toggleShuffle() {
         val c = controller ?: return
         c.shuffleModeEnabled = !c.shuffleModeEnabled

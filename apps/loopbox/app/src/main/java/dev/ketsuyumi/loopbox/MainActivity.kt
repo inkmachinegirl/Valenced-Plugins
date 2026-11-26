@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +37,7 @@ import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.sync.SyncScreen
 import dev.ketsuyumi.loopbox.ui.Accent
+import dev.ketsuyumi.loopbox.ui.FeedScreen
 import dev.ketsuyumi.loopbox.ui.HomeScreen
 import dev.ketsuyumi.loopbox.ui.LibraryScreen
 import dev.ketsuyumi.loopbox.ui.LoopboxColors
@@ -72,21 +74,24 @@ class MainActivity : ComponentActivity() {
                         else -> Column(Modifier.fillMaxSize()) {
                             Box(Modifier.weight(1f)) {
                                 when (tab) {
-                                    0 -> HomeScreen(onSync = { source, auto -> sync = source to auto })
-                                    1 -> LibraryScreen()
+                                    0 -> FeedScreen(onSync = { tab = 1 })
+                                    1 -> HomeScreen(onSync = { source, auto -> sync = source to auto })
+                                    2 -> LibraryScreen()
                                     else -> PlaylistsScreen()
                                 }
                             }
-                            MiniPlayer(onOpen = { nowPlaying = true })
+                            // The feed is its own player, so the mini player only shows on the Spotify side.
+                            if (tab != 0) MiniPlayer(onOpen = { nowPlaying = true })
                             NavigationBar(containerColor = Surface1, modifier = Modifier.padding(top = 4.dp)) {
                                 val colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = Color.White, selectedTextColor = Color.White,
                                     indicatorColor = Accent.copy(alpha = 0.25f),
                                     unselectedIconColor = Color.Gray, unselectedTextColor = Color.Gray,
                                 )
-                                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Home") }, colors = colors)
-                                NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.LibraryMusic, null) }, label = { Text("Library") }, colors = colors)
-                                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) }, label = { Text("Playlists") }, colors = colors)
+                                NavigationBarItem(tab == 0, { tab = 0 }, { Icon(Icons.Filled.PlayCircle, null) }, label = { Text("For You") }, colors = colors)
+                                NavigationBarItem(tab == 1, { tab = 1 }, { Icon(Icons.Filled.Home, null) }, label = { Text("Home") }, colors = colors)
+                                NavigationBarItem(tab == 2, { tab = 2 }, { Icon(Icons.Filled.LibraryMusic, null) }, label = { Text("Library") }, colors = colors)
+                                NavigationBarItem(tab == 3, { tab = 3 }, { Icon(Icons.AutoMirrored.Filled.QueueMusic, null) }, label = { Text("Playlists") }, colors = colors)
                             }
                         }
                     }

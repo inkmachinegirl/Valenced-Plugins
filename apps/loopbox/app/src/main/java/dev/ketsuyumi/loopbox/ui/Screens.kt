@@ -152,6 +152,7 @@ fun LibraryScreen() {
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(Filter.ALL) }
     var downloading by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val q = query.trim().lowercase()
     val shown = state.sounds
@@ -184,10 +185,20 @@ fun LibraryScreen() {
             }) { Icon(Icons.Filled.CloudDownload, null, Modifier.padding(end = 4.dp)); Text(if (downloading) "Downloading…" else "Download ${missing.size}") }
             if (shown.isNotEmpty()) PlayButtons(shown)
         }
+        if (shown.isNotEmpty()) TextButton(onClick = { confirmDelete = true }, modifier = Modifier.padding(horizontal = 8.dp)) {
+            Text("Delete all ${shown.size} shown", color = Color(0xFFFF6B6B))
+        }
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
             items(shown, key = { it.key }) { s -> SoundRow(s, shown, state.playlists) }
         }
     }
+    if (confirmDelete) AlertDialog(
+        onDismissRequest = { confirmDelete = false },
+        title = { Text("Delete ${shown.size} sounds?") },
+        text = { Text("They're removed from your library, playlists and phone. Sync again to bring saved ones back.") },
+        confirmButton = { TextButton(onClick = { confirmDelete = false; shown.forEach { Library.remove(it.key) } }) { Text("Delete", color = Color(0xFFFF6B6B)) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+    )
 }
 
 @Composable
