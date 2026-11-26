@@ -33,6 +33,8 @@ data class LibraryState(
     val recent: List<String> = emptyList(),
     /** Per source: the page the saved sounds were last found on, for "Sync now". */
     val syncPages: Map<Source, String> = emptyMap(),
+    /** Per source: the site's own request that lists the saved sounds, for syncing in the background. */
+    val syncApis: Map<Source, String> = emptyMap(),
 )
 
 /**
@@ -102,6 +104,10 @@ object Library {
 
     fun setSyncPage(source: Source, url: String) = update { it.copy(syncPages = it.syncPages + (source to url)) }
 
+    fun setSyncApi(source: Source, url: String) {
+        if (_state.value.syncApis[source] != url) update { it.copy(syncApis = it.syncApis + (source to url)) }
+    }
+
     private fun updateSound(key: String, change: (Sound) -> Sound) =
         update { s -> s.copy(sounds = s.sounds.map { if (it.key == key) change(it) else it }) }
 
@@ -148,6 +154,7 @@ object Library {
         })
         root.put("recent", JSONArray(s.recent))
         root.put("syncPages", JSONObject().apply { s.syncPages.forEach { (k, v) -> put(k.name, v) } })
+        root.put("syncApis", JSONObject().apply { s.syncApis.forEach { (k, v) -> put(k.name, v) } })
         val tmp = File(dir, "library.json.tmp")
         tmp.writeText(root.toString())
         tmp.renameTo(file)
@@ -180,10 +187,10 @@ object Library {
             }
         } ?: emptyList()
         val recent = root.optJSONArray("recent")?.let { a -> (0 until a.length()).map { a.getString(it) } } ?: emptyList()
-        val pages = root.optJSONObject("syncPages")?.let { o ->
+        fun map(name: String) = root.optJSONObject(name)?.let { o ->
             o.keys().asSequence().mapNotNull { k -> runCatching { Source.valueOf(k) to o.getString(k) }.getOrNull() }.toMap()
         } ?: emptyMap()
-        LibraryState(sounds, playlists, recent, pages)
+        LibraryState(sounds, playlists, recent, map("syncPages"), map("syncApis"))
     } catch (e: Exception) {
         LibraryState()
     }

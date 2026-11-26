@@ -3,6 +3,7 @@ package dev.ketsuyumi.loopbox
 import android.Manifest
 import android.os.Build
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -36,6 +37,7 @@ import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.sync.SyncScreen
+import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.ui.Accent
 import dev.ketsuyumi.loopbox.ui.FeedScreen
 import dev.ketsuyumi.loopbox.ui.HomeScreen
@@ -75,7 +77,13 @@ class MainActivity : ComponentActivity() {
                             Box(Modifier.weight(1f)) {
                                 when (tab) {
                                     0 -> FeedScreen(onSync = { tab = 1 })
-                                    1 -> HomeScreen(onSync = { source, auto -> sync = source to auto })
+                                    1 -> HomeScreen(onSync = { source, auto ->
+                                        // Sync now: in the background with a notification, once the list
+                                        // request is known; otherwise the sync page, to find it first.
+                                        if (auto && SyncService.syncNow(this@MainActivity, source)) {
+                                            Toast.makeText(this@MainActivity, "Syncing in the background, see the notification", Toast.LENGTH_SHORT).show()
+                                        } else sync = source to auto
+                                    })
                                     2 -> LibraryScreen()
                                     else -> PlaylistsScreen()
                                 }

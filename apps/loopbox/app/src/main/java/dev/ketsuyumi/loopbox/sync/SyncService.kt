@@ -34,6 +34,8 @@ data class SyncProgress(
     val queued: Int = 0,         // downloads asked for since the service started
     val done: Int = 0,
     val failed: Int = 0,
+    val pages: Int = 0,
+    val note: String? = null,   // how the last background sync ended
 ) {
     val waiting get() = (queued - done - failed).coerceAtLeast(0)
 }
@@ -68,9 +70,32 @@ class SyncService : Service() {
 
         /** The sync page opened ([source]) or closed (null). Opening starts the service. */
         fun listing(context: Context, source: String?) {
-            _progress.update { if (source != null && it.listing == null) SyncProgress(listing = source) else it.copy(listing = source) }
+            _progress.update {
+                when {
+                    source == null || it.listing != null -> it.copy(listing = source)
+                    // A new sync: fresh counts, but keep counting downloads still running.
+                    it.waiting > 0 -> it.copy(listing = source, found = 0, pages = 0, note = null)
+                    else -> SyncProgress(listing = source)
+                }
+            }
             if (source != null) start(context)
         }
+
+        /**
+         * "Sync now" in the background. Returns false when there's no remembered list request yet
+         * (the sync page has to be used once first).
+         */
+        fun syncNow(context: Context, source: dev.ketsuyumi.loopbox.data.Source): Boolean {
+            if (Library.state.value.syncApis[source] == null) return false
+            if (progress.value.listing != null) return true
+            listing(context, if (source == dev.ketsuyumi.loopbox.data.Source.TIKTOK) "TikTok" else "Instagram")
+            pendingSync = source
+            context.startService(Intent(context, SyncService::class.java).setAction(ACTION_SYNC))
+            return true
+        }
+
+        private const val ACTION_SYNC = "sync"
+        @Volatile private var pendingSync: dev.ketsuyumi.loopbox.data.Source? = null
 
         private fun start(context: Context) {
             if (running) return
@@ -101,7 +126,31 @@ class SyncService : Service() {
         scope.launch { watch() }
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_NOT_STICKY
+    private var background: BackgroundSync? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val source = pendingSync
+        if (intent?.action == ACTION_SYNC && source != null && background == null) {
+            pendingSync = null
+            val api = Library.state.value.syncApis[source]
+            if (api == null) { listing(this, null); return START_NOT_STICKY }
+            background = BackgroundSync(
+                this, source, api,
+                onFound = { added, pages -> _progress.update { it.copy(found = it.found + added, pages = maxOf(it.pages, pages)) } },
+                onEnd = { ok ->
+                    background = null
+                    _progress.update {
+                        it.copy(
+                            listing = null,
+                            note = if (ok) "${it.found} new sound${if (it.found == 1) "" else "s"}"
+                            else "Couldn't load the list. Open the sync page once and try again.",
+                        )
+                    }
+                },
+            ).also { it.start() }
+        }
+        return START_NOT_STICKY
+    }
 
     private suspend fun work() {
         while (true) {
@@ -124,22 +173,29 @@ class SyncService : Service() {
             val p = progress.value
             val working = p.listing != null || queue.isNotEmpty() || synchronized(this) { busy } > 0
             idle = if (working) 0 else idle + 1
-            if (idle >= 3) { stopSelf(); return }
+            if (idle >= 3) {
+                // Leave a "finished" notification that can be swiped away.
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                if (p.queued > 0 || p.note != null) nm.notify(ID + 1, notification(p, done = true))
+                stopSelf()
+                return
+            }
             nm.notify(ID, notification(p))
         }
     }
 
-    private fun notification(p: SyncProgress): android.app.Notification {
+    private fun notification(p: SyncProgress, done: Boolean = false): android.app.Notification {
         val open = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE,
         )
         val title = when {
             p.listing != null -> "Syncing ${p.listing} · ${p.found} found"
-            p.waiting > 0 -> "Downloading sounds"
-            else -> "Sync finished"
+            p.waiting > 0 -> "Downloading sounds · ${p.found} new"
+            else -> "Sync finished" + (p.note?.let { " · $it" } ?: "")
         }
         val text = buildString {
+            if (p.listing != null && p.pages > 0) append("Page ${p.pages + 1} · ")
             append("${p.done} of ${p.queued} downloaded")
             if (p.failed > 0) append(" · ${p.failed} failed")
         }
@@ -148,14 +204,16 @@ class SyncService : Service() {
             .setContentTitle(title)
             .setContentText(text)
             .setOnlyAlertOnce(true)
-            .setOngoing(true)
+            .setOngoing(!done)
+            .setAutoCancel(done)
             .setSilent(true)
             .setContentIntent(open)
-            .setProgress(p.queued.coerceAtLeast(1), p.done + p.failed, p.queued == 0)
+            .apply { if (!done) setProgress(p.queued.coerceAtLeast(1), p.done + p.failed, p.queued == 0) }
             .build()
     }
 
     override fun onDestroy() {
+        background?.finish(false)
         running = false
         scope.cancel()
         super.onDestroy()

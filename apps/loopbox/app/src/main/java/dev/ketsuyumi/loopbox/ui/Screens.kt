@@ -76,8 +76,8 @@ fun HomeScreen(onSync: (Source, Boolean) -> Unit) {
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SyncCard(Source.TIKTOK, state.syncPages[Source.TIKTOK] != null, state.sounds.count { it.source == Source.TIKTOK }, onSync, Modifier.weight(1f))
-                SyncCard(Source.INSTAGRAM, state.syncPages[Source.INSTAGRAM] != null, state.sounds.count { it.source == Source.INSTAGRAM }, onSync, Modifier.weight(1f))
+                SyncCard(Source.TIKTOK, state.syncPages[Source.TIKTOK] != null || state.syncApis[Source.TIKTOK] != null, state.sounds.count { it.source == Source.TIKTOK }, onSync, Modifier.weight(1f))
+                SyncCard(Source.INSTAGRAM, state.syncPages[Source.INSTAGRAM] != null || state.syncApis[Source.INSTAGRAM] != null, state.sounds.count { it.source == Source.INSTAGRAM }, onSync, Modifier.weight(1f))
             }
         }
         if (recent.isNotEmpty()) {
@@ -121,8 +121,14 @@ private fun SyncCard(source: Source, hasPage: Boolean, count: Int, onSync: (Sour
     ) {
         Text(if (source == Source.TIKTOK) "TikTok" else "Instagram", color = Color.White, fontWeight = FontWeight.Bold)
         Text("$count sound${if (count == 1) "" else "s"}", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+        val sync by SyncService.progress.collectAsState()
+        val name = if (source == Source.TIKTOK) "TikTok" else "Instagram"
+        if (sync.listing == name) Text(
+            "Syncing… ${sync.found} new" + if (sync.pages > 0) " · page ${sync.pages + 1}" else "",
+            color = Accent, style = MaterialTheme.typography.bodySmall,
+        )
         if (hasPage) {
-            Button(onClick = { onSync(source, true) }, contentPadding = PaddingValues(horizontal = 10.dp)) {
+            Button(enabled = sync.listing == null, onClick = { onSync(source, true) }, contentPadding = PaddingValues(horizontal = 10.dp)) {
                 Icon(Icons.Filled.Sync, null, Modifier.padding(end = 4.dp)); Text("Sync now")
             }
             TextButton(onClick = { onSync(source, false) }) { Text("Open") }

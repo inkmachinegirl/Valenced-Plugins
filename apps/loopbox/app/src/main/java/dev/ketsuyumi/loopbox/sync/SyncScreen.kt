@@ -53,7 +53,7 @@ import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
 
-private const val DESKTOP_UA =
+internal const val DESKTOP_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 
 /** The WebView's own user agent made to look like Chrome: no "; wv" and no "Version/4.0". */
@@ -76,7 +76,7 @@ fun howTo(source: Source) = when (source) {
  *   scripts), on load and again every few seconds as the page changes;
  * - window.__loopboxScroll(true) scrolls the page by itself (Sync now).
  */
-private val CAPTURE_JS = """
+internal val CAPTURE_JS = """
 (function(){
   if (window.__loopbox) return; window.__loopbox = true;
   var KEYS = /playUrl|play_url|progressive_download_url/;
@@ -90,15 +90,34 @@ private val CAPTURE_JS = """
     var j; try { j = JSON.parse(t); } catch(e){ return; }
     var has = j.hasMore || j.has_more || j.more_available;
     var c = j.cursor != null ? j.cursor : (j.max_cursor != null ? j.max_cursor : j.next_max_id);
-    if (!has || c == null || c === '') return;
+    if (!has || c == null || c === '') { try { LoopboxBridge.done(); } catch(e){} return; }
     var u; try { u = new URL(from, location.href); } catch(e){ return; }
     ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ u.searchParams.delete(k); });
     var name = u.searchParams.has('max_cursor') ? 'max_cursor' : (u.searchParams.has('max_id') || j.next_max_id != null ? 'max_id' : 'cursor');
     var key = u.pathname + '|' + c; if (paged[key]) return; paged[key] = 1;
     u.searchParams.set(name, String(c));
     try { LoopboxBridge.paging(Object.keys(paged).length); } catch(e){}
-    setTimeout(function(){ var x = new XMLHttpRequest(); x.open('GET', u.toString()); x.withCredentials = true; x.send(); }, 600);
+    setTimeout(function(){ get(u.toString()); }, 600);
   }
+  function get(url){
+    var x = new XMLHttpRequest(); x.open('GET', url); x.withCredentials = true;
+    if (/instagram\.com/.test(location.host)) {
+      var m = document.cookie.match(/csrftoken=([^;]+)/);
+      x.setRequestHeader('X-IG-App-ID', '936619743392459');
+      x.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+      if (m) x.setRequestHeader('X-CSRFToken', m[1]);
+    }
+    x.addEventListener('error', function(){ try { LoopboxBridge.done(); } catch(e){} });
+    x.send();
+  }
+  // Background sync: ask for the saved list from its first page; more() follows the rest.
+  window.__loopboxList = function(url){
+    var u; try { u = new URL(url, location.href); } catch(e){ return; }
+    ['X-Bogus','X-Gnarly','_signature','max_id'].forEach(function(k){ u.searchParams.delete(k); });
+    if (u.searchParams.has('cursor')) u.searchParams.set('cursor', '0');
+    if (u.searchParams.has('max_cursor')) u.searchParams.set('max_cursor', '0');
+    paged = {}; get(u.toString());
+  };
   var f = window.fetch;
   if (f) window.fetch = function(input){ var u = typeof input === 'string' ? input : (input && input.url) || '';
     return f.apply(window, arguments).then(function(r){ try { r.clone().text().then(function(t){ send(t, r.url || u); }); } catch(e){} return r; }); };
@@ -183,6 +202,7 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                         skipped += sounds.size
                         return@post
                     }
+                    if (from.startsWith("http")) Library.setSyncApi(source, from)
                     val have = Library.state.value.sounds.map { it.key }.toSet()
                     val new = sounds.filter { it.key !in have && found.none { f -> f.key == it.key } }
                     if (new.isEmpty()) return@post
