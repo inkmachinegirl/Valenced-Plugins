@@ -71,7 +71,24 @@ object Library {
     fun init(context: Context) {
         if (::dir.isInitialized) return
         dir = context.filesDir
-        _state.value = load()
+        val loaded = load()
+        _state.value = forgetWrongLists(loaded)
+        if (_state.value !== loaded) scheduleSave()
+    }
+
+    /**
+     * Earlier versions could remember TikTok's For You request (and page) as the saved list,
+     * because its query has "data_collection_enabled". Only saved-list requests and profile pages
+     * are kept; background syncs then click through to the right list and remember it.
+     */
+    private fun forgetWrongLists(s: LibraryState): LibraryState {
+        fun path(u: String) = runCatching { java.net.URI(u).path.orEmpty().lowercase() }.getOrDefault("")
+        val saved = Regex("collect|favorite|favourite|music_list|musiclist|saved|audio|clips")
+        val apis = s.syncApis.filterValues { saved.containsMatchIn(path(it)) }
+        val videoApis = s.videoApis.filterValues { saved.containsMatchIn(path(it)) }
+        val pages = s.syncPages.filter { (src, u) -> if (src == Source.TIKTOK) path(u).startsWith("/@") else "/saved" in path(u) }
+        if (apis == s.syncApis && videoApis == s.videoApis && pages == s.syncPages) return s
+        return s.copy(syncApis = apis, videoApis = videoApis, syncPages = pages)
     }
 
     fun sound(key: String): Sound? = _state.value.sounds.firstOrNull { it.key == key }

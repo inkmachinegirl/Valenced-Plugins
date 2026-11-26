@@ -22,11 +22,13 @@ internal val CAPTURE_JS = """
   if (window.__loopbox) return; window.__loopbox = true;
   var KEYS = /playUrl|play_url|playAddr|play_addr|progressive_download_url|video_versions/;
   var LIST = /collect|favorite|favourite|music_list|musiclist|saved|audio|clips/i;
+  // Only the request's path says what list it is: the query has words like data_collection_enabled.
+  function isList(from){ try { return /^https?:/.test(from || '') && LIST.test(new URL(from, location.href).pathname); } catch(e){ return false; } }
   var CURSORS = ['cursor','max_cursor','maxCursor','min_cursor','minCursor','offset','max_id','maxId'];
   function log(m){ try { LoopboxBridge.log(String(m)); } catch(e){} }
   function short(url){
     try { var u = new URL(url, location.href); var p = [];
-      u.searchParams.forEach(function(v, k){ if (v.length <= 24) p.push(k + '=' + v); });
+      u.searchParams.forEach(function(v, k){ if (/cursor|count|offset|max|min/i.test(k)) p.push(k + '=' + v); });
       return u.pathname + '?' + p.join('&'); } catch(e){ return String(url).slice(0, 120); }
   }
   function done(why){ log('list ended: ' + why); try { LoopboxBridge.done(String(why)); } catch(e){} }
@@ -35,14 +37,14 @@ internal val CAPTURE_JS = """
     try {
       if (!t || t.length > 8e6 || !KEYS.test(t)) return;
       var go = LoopboxBridge.found(t, location.href, from || '');
-      if (go === false) { if (/^https?:/.test(from || '') && LIST.test(from)) done('enough'); return; }
+      if (go === false) { if (isList(from)) done('enough'); return; }
       more(t, from);
     } catch(e){}
   }
   var paged = {};
   function clean(u){ ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ u.searchParams.delete(k); }); }
   function more(t, from){
-    if (!/^https?:/.test(from || '') || !LIST.test(from)) return;
+    if (!isList(from)) return;
     var j; try { j = JSON.parse(t); } catch(e){ return; }
     var has = j.hasMore || j.has_more || j.more_available || j.hasMorePage;
     var c = j.cursor != null ? j.cursor : j.max_cursor != null ? j.max_cursor : j.maxCursor != null ? j.maxCursor : j.next_max_id;
@@ -103,8 +105,10 @@ internal val CAPTURE_JS = """
     return false;
   }
   window.__loopboxDrive = function(kind){
-    var steps = [[/^(Favorites|Favourites)$/i, '[data-e2e="favorites-tab"]'],
-                 kind === 'sounds' ? [/^Sounds?$/i, null] : [/^(Posts|Videos)$/i, null]];
+    var steps = [];
+    if (/tiktok\.com/.test(location.host) && !/^\/@/.test(location.pathname)) steps.push([/^Profile$/i, '[data-e2e="nav-profile"]']);
+    steps = steps.concat([[/^(Favorites|Favourites)$/i, '[data-e2e="favorites-tab"]'],
+                 kind === 'sounds' ? [/^Sounds?$/i, null] : [/^(Posts|Videos)$/i, null]]);
     var i = 0;
     log('clicking through to ' + kind + ' on ' + location.pathname);
     var t = setInterval(function(){

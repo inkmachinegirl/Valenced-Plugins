@@ -74,7 +74,7 @@ fun howTo(source: Source) = when (source) {
  */
 fun isSavedList(source: Source, page: String, from: String): Boolean {
     val p = page.lowercase()
-    val f = from.lowercase()
+    val f = requestPath(from)
     return when (source) {
         Source.TIKTOK -> Regex("collect|favorite|favourite|music_list|musiclist|/music/list").containsMatchIn(f) ||
             (f == "embedded" && ("favorite" in p || "/music/" in p))
@@ -121,7 +121,7 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
             @JavascriptInterface
             fun found(text: String, url: String, from: String): Boolean {
                 val go = importer.take(text, url, from)
-                if (from.startsWith("http") && (importer.sounds + importer.videos) > 0) main.post { Library.setSyncPage(source, url) }
+                if (from.startsWith("http") && (importer.sounds + importer.videos) > 0 && isProfilePage(source, url)) main.post { Library.setSyncPage(source, url) }
                 main.post { counts = Triple(importer.sounds, importer.videos, importer.skipped) }
                 return go
             }

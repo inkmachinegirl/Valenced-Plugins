@@ -6,6 +6,23 @@ import android.webkit.WebView
 import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Source
 
+/**
+ * What a request is for, from its path only ("embedded" stays as it is). The query can't be
+ * used: TikTok's For You request has data_collection_enabled=true in it, which looked "saved".
+ */
+fun requestPath(from: String): String =
+    if (from.startsWith("http")) runCatching { java.net.URI(from).path.orEmpty() }.getOrDefault(from.substringBefore('?')).lowercase()
+    else from.lowercase()
+
+/** Whether [url] is your profile (TikTok /@name, Instagram /name/saved): where background syncs start. */
+fun isProfilePage(source: Source, url: String): Boolean {
+    val p = requestPath(url)
+    return when (source) {
+        Source.TIKTOK -> p.startsWith("/@") && "/video/" !in p
+        Source.INSTAGRAM -> "/saved" in p
+    }
+}
+
 /** Saved videos taken in one sync at most (TikTok favorites can be tens of thousands). */
 const val VIDEO_CAP = 1000
 
@@ -14,7 +31,7 @@ const val VIDEO_CAP = 1000
  * ("collect" requests), Instagram's Saved. Liked videos and feeds aren't.
  */
 fun isSavedVideos(source: Source, page: String, from: String): Boolean {
-    val f = from.lowercase()
+    val f = requestPath(from)
     return when (source) {
         Source.TIKTOK -> "collect" in f
         Source.INSTAGRAM -> "/saved" in page.lowercase() || Regex("saved|collection").containsMatchIn(f)
