@@ -47,6 +47,8 @@ import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.ui.Accent
 import dev.ketsuyumi.loopbox.ui.FeedScreen
 import dev.ketsuyumi.loopbox.ui.FeedNav
+import dev.ketsuyumi.loopbox.ui.Viewer
+import dev.ketsuyumi.loopbox.ui.ViewerScreen
 import dev.ketsuyumi.loopbox.ui.SettingsScreen
 import dev.ketsuyumi.loopbox.data.Settings
 import androidx.compose.runtime.LaunchedEffect
@@ -106,11 +108,13 @@ class MainActivity : ComponentActivity() {
                 }
                 ProgressTicker()
 
-                Box(Modifier.fillMaxSize().background(if (tab == 0 && sync == null && !settings && !nowPlaying) Color.Black else Background)) {
+                Box(Modifier.fillMaxSize().background(if ((tab == 0 || Viewer.keys != null) && sync == null && !settings && !nowPlaying) Color.Black else Background)) {
                     val open = sync
                     when {
                         open != null -> Box(Modifier.safeDrawingPadding()) { SyncScreen(open.first, open.second, onClose = { sync = null }) }
                         settings -> Box(Modifier.safeDrawingPadding()) { SettingsScreen(onClose = { settings = false }) }
+                        // A list opened from Home or a playlist: full screen, like TikTok.
+                        Viewer.keys != null -> ViewerScreen()
                         nowPlaying -> Box(Modifier.safeDrawingPadding()) {
                             BackHandler { nowPlaying = false }
                             NowPlaying(onClose = { nowPlaying = false })

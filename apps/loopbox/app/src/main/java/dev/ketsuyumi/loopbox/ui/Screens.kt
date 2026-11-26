@@ -59,63 +59,98 @@ import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.sync.SyncService
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.size
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.ketsuyumi.loopbox.sync.Account
 
 // ---- Home ----
 
+private enum class HomeTab(val label: String) { VIDEOS("Videos"), SOUNDS("Sounds"), LIKED("Liked"), RECENT("Recent") }
+
+/**
+ * Home, like a TikTok profile: the sync cards on top, then your saved videos, sounds, likes and
+ * recently played as a grid of tiles; a tile opens that list full screen to swipe through.
+ */
 @Composable
 fun HomeScreen(onSync: (Source, Boolean) -> Unit, onSettings: () -> Unit = {}) {
     val state by Library.state.collectAsState()
-    val recent = state.recent.mapNotNull { k -> state.sounds.firstOrNull { it.key == k } }
+    var tab by rememberSaveable { mutableStateOf(HomeTab.VIDEOS) }
+    val byKey = remember(state.sounds) { state.sounds.associateBy { it.key } }
+    val list = remember(state.sounds, state.recent, tab) {
+        when (tab) {
+            HomeTab.VIDEOS -> state.sounds.filter { it.video }.sortedByDescending { it.addedAt }
+            HomeTab.SOUNDS -> state.sounds.filter { !it.video }.sortedByDescending { it.addedAt }
+            HomeTab.LIKED -> state.sounds.filter { it.liked }.sortedByDescending { it.addedAt }
+            HomeTab.RECENT -> state.recent.mapNotNull { byKey[it] }
+        }
+    }
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-    LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-        item {
+    val full = { _: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope -> androidx.compose.foundation.lazy.grid.GridItemSpan(3) }
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        item(span = full) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     when (hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" },
                     color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(16.dp).weight(1f),
                 )
-                androidx.compose.material3.IconButton(onClick = onSettings) {
-                    Icon(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", tint = Color.White)
-                }
+                IconButton(onClick = onSettings) { Icon(Icons.Filled.Settings, "Settings", tint = Color.White) }
             }
         }
-        item {
+        item(span = full) {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SyncCard(Source.TIKTOK, state.syncPages[Source.TIKTOK] != null || state.syncApis[Source.TIKTOK] != null, state.sounds.count { it.source == Source.TIKTOK && !it.video }, onSync, Modifier.weight(1f))
                 SyncCard(Source.INSTAGRAM, state.syncPages[Source.INSTAGRAM] != null || state.syncApis[Source.INSTAGRAM] != null, state.sounds.count { it.source == Source.INSTAGRAM && !it.video }, onSync, Modifier.weight(1f))
             }
         }
-        if (recent.isNotEmpty()) {
-            item { SectionTitle("Recently played") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(recent.take(20), key = { it.key }) { s -> Tile(s, recent) }
+        // Tabs, like the ones under a TikTok profile.
+        item(span = full) {
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                HomeTab.entries.forEach { t ->
+                    val on = tab == t
+                    Column(Modifier.weight(1f).clickable { tab = t }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            when (t) {
+                                HomeTab.VIDEOS -> Icons.Filled.GridView
+                                HomeTab.SOUNDS -> Icons.Filled.MusicNote
+                                HomeTab.LIKED -> Icons.Filled.Favorite
+                                HomeTab.RECENT -> Icons.Filled.History
+                            },
+                            t.label, tint = if (on) Color.White else Color.Gray,
+                        )
+                        Text(t.label, color = if (on) Color.White else Color.Gray, style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(6.dp))
+                        Box(Modifier.fillMaxWidth(0.5f).height(2.dp).background(if (on) Color.White else Color.Transparent))
+                    }
                 }
             }
         }
-        val liked = state.sounds.filter { it.liked && !it.video }
-        if (liked.isNotEmpty()) {
-            item { SectionTitle("Liked sounds") }
-            item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(liked.take(20), key = { it.key }) { s -> Tile(s, liked) }
-                }
-            }
-        }
-        if (state.sounds.isNotEmpty()) {
-            item { SectionTitle("Recently added") }
-            val added = state.sounds.filter { !it.video }.sortedByDescending { it.addedAt }
-            items(added.take(10), key = { "added-" + it.key }) { s ->
-                SoundRow(s, added, state.playlists)
-            }
-        } else {
-            item {
-                Text(
-                    "Your library is empty. Tap a sync card above, log in, and open your saved sounds.",
-                    color = Color.Gray, modifier = Modifier.padding(16.dp),
-                )
-            }
+        items(list, key = { it.key }) { s -> VideoTile(s) { Viewer.open(tab.label, list, s) } }
+        if (list.isEmpty()) item(span = full) {
+            Text(
+                when (tab) {
+                    HomeTab.VIDEOS -> "No saved videos yet. Sync now adds your TikTok Favorites › Posts."
+                    HomeTab.SOUNDS -> "No sounds yet. Tap a sync card above."
+                    HomeTab.LIKED -> "Nothing liked yet. Double tap a video in the feed."
+                    HomeTab.RECENT -> "Nothing played yet."
+                },
+                color = Color.Gray, modifier = Modifier.padding(24.dp),
+            )
         }
     }
 }
@@ -134,7 +169,7 @@ private fun SyncCard(source: Source, hasPage: Boolean, count: Int, onSync: (Sour
             "Syncing… ${sync.found} new" + if (sync.pages > 0) " · page ${sync.pages + 1}" else "",
             color = Accent, style = MaterialTheme.typography.bodySmall,
         )
-        if (hasPage) {
+        if (hasPage || Account.loggedIn(source)) {
             Button(enabled = sync.listing == null, onClick = { onSync(source, true) }, contentPadding = PaddingValues(horizontal = 10.dp)) {
                 Icon(Icons.Filled.Sync, null, Modifier.padding(end = 4.dp)); Text("Sync now")
             }
@@ -145,14 +180,42 @@ private fun SyncCard(source: Source, hasPage: Boolean, count: Int, onSync: (Sour
     }
 }
 
+/**
+ * A tile like a TikTok grid: the cover, tall; videos show their likes, sounds a note and their
+ * title. [onLongClick]: e.g. remove from a playlist.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun Tile(s: Sound, queue: List<Sound>) {
-    Column(Modifier.width(140.dp).clickable { PlayerConnection.play(queue, s) }) {
-        Cover(s.cover, 140.dp, s.source, 8.dp)
-        Spacer(Modifier.height(6.dp))
-        Text(s.title, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-        Text(s.artist, color = Color.Gray, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+fun VideoTile(s: Sound, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+    val playing = PlayerConnection.currentKey == s.key
+    Box(
+        Modifier.fillMaxWidth().aspectRatio(3f / 4f).background(Surface2)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        if (s.cover != null) coil.compose.AsyncImage(
+            model = s.cover, contentDescription = s.title, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        ) else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.MusicNote, null, tint = Color.Gray, modifier = Modifier.size(32.dp))
+        }
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Color(0xAA000000)))))
+        Row(Modifier.align(Alignment.BottomStart).padding(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (s.video) Icons.Filled.PlayArrow else Icons.Filled.MusicNote, null, tint = Color.White, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(2.dp))
+            Text(
+                if (s.video) (if (s.likes >= 0) compact(s.likes) else s.artist) else s.title,
+                color = Color.White, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (playing) Icon(Icons.Filled.GraphicEq, "Playing", tint = Accent, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(16.dp))
+        if (s.liked) Icon(Icons.Filled.Favorite, "Liked", tint = Accent, modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(14.dp))
     }
+}
+
+private fun compact(n: Long): String = when {
+    n < 1000 -> n.toString()
+    n < 1_000_000 -> "%.1fK".format(n / 1000.0).replace(".0K", "K")
+    else -> "%.1fM".format(n / 1_000_000.0).replace(".0M", "M")
 }
 
 // ---- Library ----
@@ -228,39 +291,58 @@ private fun PlayButtons(queue: List<Sound>) {
 
 // ---- Playlists ----
 
+/** Playlists as cover tiles; one opens as a grid, and a tile there plays the playlist full screen. */
 @Composable
 fun PlaylistsScreen() {
     val state by Library.state.collectAsState()
     var open by remember { mutableStateOf<String?>(null) }
     var naming by remember { mutableStateOf<Playlist?>(null) }
     var creating by remember { mutableStateOf(false) }
+    val byKey = remember(state.sounds) { state.sounds.associateBy { it.key } }
     val current = state.playlists.firstOrNull { it.id == open }
     if (current != null) {
-        PlaylistDetail(current, state.sounds, state.playlists, onBack = { open = null }, onRename = { naming = current })
+        BackHandler { open = null }
+        PlaylistDetail(current, byKey, onBack = { open = null }, onRename = { naming = current })
     } else {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Playlists", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "New playlist", tint = Color.White) }
+        val full = { _: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope -> androidx.compose.foundation.lazy.grid.GridItemSpan(2) }
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(2),
+            contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            item(span = full) {
+                Row(Modifier.padding(vertical = 12.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Playlists", color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "New playlist", tint = Color.White) }
+                }
             }
-            LazyColumn {
-                items(state.playlists, key = { it.id }) { p ->
-                    val first = p.keys.firstNotNullOfOrNull { k -> state.sounds.firstOrNull { it.key == k } }
-                    Row(
-                        Modifier.fillMaxWidth().clickable { open = p.id }.padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Cover(first?.cover, 56.dp, first?.source)
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(p.name, color = Color.White, fontWeight = FontWeight.Medium)
-                            Text("${p.keys.size} sound${if (p.keys.size == 1) "" else "s"}", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            items(state.playlists, key = { it.id }) { p ->
+                val items = p.keys.mapNotNull { byKey[it] }
+                Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable { open = p.id }) {
+                    // A 2×2 mosaic of the first covers, like a playlist on TikTok.
+                    Box(Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(12.dp)).background(Surface2)) {
+                        val covers = items.mapNotNull { it.cover }.take(4)
+                        if (covers.isEmpty()) Icon(Icons.Filled.MusicNote, null, tint = Color.Gray, modifier = Modifier.align(Alignment.Center).size(40.dp))
+                        else if (covers.size < 4) coil.compose.AsyncImage(covers[0], null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        else Column {
+                            for (r in 0..1) Row(Modifier.weight(1f)) {
+                                for (c in 0..1) coil.compose.AsyncImage(covers[r * 2 + c], null, contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.weight(1f).fillMaxSize())
+                            }
                         }
                     }
+                    Text(p.name, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                    val videos = items.count { it.video }
+                    Text(
+                        listOfNotNull(
+                            (items.size - videos).takeIf { it > 0 }?.let { "$it sound${if (it == 1) "" else "s"}" },
+                            videos.takeIf { it > 0 }?.let { "$it video${if (it == 1) "" else "s"}" },
+                        ).joinToString(" · ").ifEmpty { "Empty" },
+                        color = Color.Gray, style = MaterialTheme.typography.bodySmall,
+                    )
                 }
-                if (state.playlists.isEmpty()) item {
-                    Text("No playlists yet. Tap + to make one, or use ⋮ on any sound.", color = Color.Gray, modifier = Modifier.padding(16.dp))
-                }
+            }
+            if (state.playlists.isEmpty()) item(span = full) {
+                Text("No playlists yet. Tap + to make one, or Save on any video in the feed.", color = Color.Gray, modifier = Modifier.padding(8.dp))
             }
         }
     }
@@ -269,22 +351,47 @@ fun PlaylistsScreen() {
 }
 
 @Composable
-private fun PlaylistDetail(p: Playlist, all: List<Sound>, playlists: List<Playlist>, onBack: () -> Unit, onRename: () -> Unit) {
-    val sounds = p.keys.mapNotNull { k -> all.firstOrNull { it.key == k } }
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) }
-            Text(p.name, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).clickable(onClick = onRename))
-            if (sounds.isNotEmpty()) PlayButtons(sounds)
+private fun PlaylistDetail(p: Playlist, byKey: Map<String, Sound>, onBack: () -> Unit, onRename: () -> Unit) {
+    val items = p.keys.mapNotNull { byKey[it] }
+    var removing by remember { mutableStateOf<Sound?>(null) }
+    val full = { _: androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope -> androidx.compose.foundation.lazy.grid.GridItemSpan(3) }
+    androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+        columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(3),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp), verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        item(span = full) {
+            Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White) }
+                Text(p.name, color = Color.White, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).clickable(onClick = onRename))
+                if (items.isNotEmpty()) PlayButtons(items)
+            }
         }
-        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onRename) { Text("Rename") }
-            OutlinedButton(onClick = { Library.deletePlaylist(p.id); onBack() }) { Text("Delete") }
+        item(span = full) {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (items.isNotEmpty()) Button(onClick = { Viewer.open(p.name, items, items.first()) }) {
+                    Icon(Icons.Filled.PlayArrow, null, Modifier.padding(end = 4.dp)); Text("Watch")
+                }
+                OutlinedButton(onClick = onRename) { Text("Rename") }
+                OutlinedButton(onClick = { Library.deletePlaylist(p.id); onBack() }) { Text("Delete") }
+            }
         }
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-            items(sounds, key = { it.key }) { s -> SoundRow(s, sounds, playlists, inPlaylist = p) }
-            if (sounds.isEmpty()) item { Text("Empty. Add sounds with ⋮ in your library.", color = Color.Gray, modifier = Modifier.padding(16.dp)) }
+        if (items.isNotEmpty()) item(span = full) {
+            Text("Hold a tile to remove it", color = Color.Gray, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
         }
+        items(items, key = { it.key }) { s -> VideoTile(s, onLongClick = { removing = s }) { Viewer.open(p.name, items, s) } }
+        if (items.isEmpty()) item(span = full) {
+            Text("Empty. Tap Save on a video in the feed, or ⋮ on a sound in your library.", color = Color.Gray, modifier = Modifier.padding(16.dp))
+        }
+    }
+    removing?.let { s ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text("Remove from ${p.name}?") },
+            text = { Text(s.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+            confirmButton = { TextButton(onClick = { Library.removeFromPlaylist(p.id, s.key); removing = null }) { Text("Remove") } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancel") } },
+        )
     }
 }
 

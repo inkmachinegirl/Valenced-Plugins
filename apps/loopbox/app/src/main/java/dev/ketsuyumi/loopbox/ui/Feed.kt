@@ -35,6 +35,7 @@ import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
@@ -120,6 +121,38 @@ object FeedNav {
 
 private val TABS = listOf("Saved", "Following", "For You")
 
+/** Room to leave at the bottom of the feed for a see-through navigation bar over it. */
+private val LocalNavSpace = androidx.compose.runtime.staticCompositionLocalOf { 0.dp }
+
+/** A list opened full screen from Home or a playlist (keys in order, and where to start). */
+object Viewer {
+    var keys by mutableStateOf<List<String>?>(null); private set
+    var start by mutableStateOf<String?>(null); private set
+    var title by mutableStateOf(""); private set
+
+    fun open(title: String, list: List<Sound>, at: Sound) {
+        this.title = title; start = at.key; keys = list.map { it.key }
+    }
+
+    fun close() { keys = null }
+}
+
+/** The list from [Viewer], like TikTok: full screen, swipe up for the next; back to leave. */
+@Composable
+fun ViewerScreen() {
+    val keys = Viewer.keys ?: return
+    androidx.activity.compose.BackHandler { Viewer.close() }
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        SavedFeed(onSync = {}, look = Look(1f, 0.dp, 0.dp), keys = keys, startKey = Viewer.start)
+        Row(Modifier.statusBarsPadding().padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { Viewer.close() }) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color.White)
+            }
+            Text(Viewer.title, color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
+    }
+}
+
 /** Burn-in protection: how much to show the feed's buttons and text, and how far to shift them. */
 private data class Look(val ui: Float, val dx: Dp, val dy: Dp)
 
@@ -140,10 +173,12 @@ fun FeedScreen(onSync: () -> Unit, onSettings: () -> Unit) {
         if (on) listOf(-3, -5, -3, 0, 3, 5, 3, 0)[shift].dp else 0.dp,
     )
     Box(Modifier.fillMaxSize().background(Color.Black)) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalNavSpace provides if (Settings.glassNav) 80.dp else 0.dp) {
         when (FeedNav.tab) {
             FeedNav.SAVED -> SavedFeed(onSync, look)
             FeedNav.FOLLOWING -> LiveFeed("https://www.tiktok.com/following", look)
             else -> LiveFeed("https://www.tiktok.com/foryou", look)
+        }
         }
         Row(
             Modifier.fillMaxWidth().then(if (Settings.extendStatusBar) Modifier.statusBarsPadding() else Modifier)
@@ -327,12 +362,15 @@ private fun LiveFeed(url: String, look: Look) {
  */
 @OptIn(UnstableApi::class)
 @Composable
-private fun SavedFeed(onSync: () -> Unit, look: Look) {
+private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null, startKey: String? = null) {
     val state by Library.state.collectAsState()
     val context = LocalContext.current
-    // Newest saves first; pages are keyed, so new ones arriving don't move you.
-    val feed = remember(state.sounds.size) { state.sounds.sortedByDescending { it.addedAt } }
     val byKey = remember(state.sounds) { state.sounds.associateBy { it.key } }
+    // [keys]: a list opened from Home or a playlist, in its order. Otherwise everything saved,
+    // newest first; pages are keyed, so new ones arriving don't move you.
+    val feed = remember(state.sounds.size, keys) {
+        keys?.mapNotNull { byKey[it] } ?: state.sounds.sortedByDescending { it.addedAt }
+    }
 
     val video = remember { videoPlayer(context).apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE } }
     var videoKey by remember { mutableStateOf<String?>(null) }   // whose video is loaded
@@ -360,7 +398,7 @@ private fun SavedFeed(onSync: () -> Unit, look: Look) {
         }
         return
     }
-    val wanted = FeedNav.startKey ?: PlayerConnection.currentKey
+    val wanted = startKey ?: FeedNav.startKey ?: PlayerConnection.currentKey
     val start = feed.indexOfFirst { it.key == wanted }.coerceAtLeast(0)
     val pager = rememberPagerState(initialPage = start) { feed.size }
     LaunchedEffect(Unit) { FeedNav.startKey = null }
@@ -429,7 +467,7 @@ private fun FeedPage(
     LaunchedEffect(heart) { if (heart > 0) { delay(700); heart = 0 } }
     val ui = if (clear) 0f else ui0
     // Settings › Glass navigation bar: keep the text and buttons above it.
-    val navSpace = if (Settings.glassNav) 80.dp else 0.dp
+    val navSpace = LocalNavSpace.current
 
     fun like() {
         if (inLibrary == null) saveToLibrary(context, s.copy(liked = true)) else Library.toggleLike(s.key)
