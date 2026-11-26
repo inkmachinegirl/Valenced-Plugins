@@ -87,7 +87,8 @@ class SyncService : Service() {
          */
         fun syncNow(context: Context, source: dev.ketsuyumi.loopbox.data.Source): Boolean {
             val s = Library.state.value
-            if (s.syncApis[source] == null && s.syncPages[source] == null) return false
+            // Logged in on the sync page once is enough; the lists are found from your profile.
+            if (s.syncApis[source] == null && s.syncPages[source] == null && !Account.loggedIn(source)) return false
             if (progress.value.listing != null) return true
             listing(context, if (source == dev.ketsuyumi.loopbox.data.Source.TIKTOK) "TikTok" else "Instagram")
             pendingSync = source

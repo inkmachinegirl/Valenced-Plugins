@@ -12,8 +12,8 @@ android {
         applicationId = "dev.ketsuyumi.loopbox"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11
-        versionName = "1.8.0"
+        versionCode = 12
+        versionName = "1.8.1"
     }
 
     // The key Loopbox 1.0.0 was signed with, kept here so every update installs over the old app

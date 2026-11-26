@@ -218,7 +218,7 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                                 page = url
                                 if (!early) view.evaluateJavascript(CAPTURE_JS, null)
                                 view.evaluateJavascript("window.__loopboxScroll && window.__loopboxScroll($autoScroll)", null)
-                                if (auto && !drove && source == Source.TIKTOK) {
+                                if (auto && !drove && source == Source.TIKTOK && isProfilePage(source, url)) {
                                     drove = true
                                     view.evaluateJavascript("window.__loopboxDrive && window.__loopboxDrive('sounds')", null)
                                 }
@@ -226,7 +226,21 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                             }
                         }
                         val saved = Library.state.value.syncPages[source]
-                        loadUrl(if (auto && saved != null) saved else startUrl(source))
+                        when {
+                            auto && saved != null -> loadUrl(saved)
+                            // Logged in already: straight to your profile, where Favorites is.
+                            source == Source.TIKTOK && Account.loggedIn(source) -> {
+                                val view = this
+                                Thread {
+                                    val profile = Account.tiktokProfile()
+                                    main.post {
+                                        if (profile != null) Library.setSyncPage(source, profile)
+                                        view.loadUrl(profile ?: startUrl(source))
+                                    }
+                                }.start()
+                            }
+                            else -> loadUrl(startUrl(source))
+                        }
                         web = this
                     }
                 },

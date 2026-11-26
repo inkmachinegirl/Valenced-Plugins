@@ -99,11 +99,18 @@ class BackgroundSync(
             }
         }
         SyncLog.add("Background sync (${source.name.lowercase()}) started")
-        val home = Library.state.value.syncPages[source] ?: when (source) {
-            Source.TIKTOK -> "https://www.tiktok.com/profile"
-            Source.INSTAGRAM -> "https://www.instagram.com/"
-        }
-        w.loadUrl(home)
+        // Start on your profile (where Favorites is): remembered, or found from your account.
+        val saved = Library.state.value.syncPages[source]
+        if (saved != null || source != Source.TIKTOK) {
+            w.loadUrl(saved ?: "https://www.instagram.com/")
+        } else Thread {
+            val profile = Account.tiktokProfile()
+            main.post {
+                if (ended) return@post
+                if (profile != null) Library.setSyncPage(source, profile)
+                web?.loadUrl(profile ?: "https://www.tiktok.com/profile")
+            }
+        }.start()
         watchdog()
     }
 
