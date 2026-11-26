@@ -55,7 +55,7 @@ import dev.ketsuyumi.loopbox.data.Playlist
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
 import dev.ketsuyumi.loopbox.playback.PlayerConnection
-import dev.ketsuyumi.loopbox.sync.Downloader
+import dev.ketsuyumi.loopbox.sync.SyncService
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -151,9 +151,8 @@ fun LibraryScreen() {
     val state by Library.state.collectAsState()
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf(Filter.ALL) }
-    var downloading by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val q = query.trim().lowercase()
     val shown = state.sounds
         .filter {
@@ -179,10 +178,10 @@ fun LibraryScreen() {
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${shown.size} sound${if (shown.size == 1) "" else "s"}", color = Color.Gray, modifier = Modifier.weight(1f))
             val missing = state.sounds.filter { it.file == null }
-            if (missing.isNotEmpty()) TextButton(enabled = !downloading, onClick = {
-                downloading = true
-                scope.launch { missing.forEach { Downloader.download(it) }; downloading = false }
-            }) { Icon(Icons.Filled.CloudDownload, null, Modifier.padding(end = 4.dp)); Text(if (downloading) "Downloading…" else "Download ${missing.size}") }
+            val sync by SyncService.progress.collectAsState()
+            if (missing.isNotEmpty()) TextButton(enabled = sync.waiting == 0, onClick = {
+                SyncService.enqueue(context, missing.map { it.key })
+            }) { Icon(Icons.Filled.CloudDownload, null, Modifier.padding(end = 4.dp)); Text(if (sync.waiting > 0) "Downloading… ${sync.waiting} left" else "Download ${missing.size}") }
             if (shown.isNotEmpty()) PlayButtons(shown)
         }
         if (shown.isNotEmpty()) TextButton(onClick = { confirmDelete = true }, modifier = Modifier.padding(horizontal = 8.dp)) {

@@ -7,6 +7,9 @@ import android.os.Looper
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -32,15 +35,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.webkit.WebViewCompat
@@ -48,12 +52,12 @@ import androidx.webkit.WebViewFeature
 import dev.ketsuyumi.loopbox.data.Library
 import dev.ketsuyumi.loopbox.data.Source
 import dev.ketsuyumi.loopbox.data.Sound
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 
 private const val DESKTOP_UA =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+
+/** The WebView's own user agent made to look like Chrome: no "; wv" and no "Version/4.0". */
+fun chromeUa(webViewUa: String) = webViewUa.replace("; wv)", ")").replace(Regex("Version/\\S+ "), "")
 
 fun startUrl(source: Source) = when (source) {
     Source.TIKTOK -> "https://www.tiktok.com/login"
@@ -97,7 +101,7 @@ private val CAPTURE_JS = """
   }
   var f = window.fetch;
   if (f) window.fetch = function(input){ var u = typeof input === 'string' ? input : (input && input.url) || '';
-    return f.apply(this, arguments).then(function(r){ try { r.clone().text().then(function(t){ send(t, r.url || u); }); } catch(e){} return r; }); };
+    return f.apply(window, arguments).then(function(r){ try { r.clone().text().then(function(t){ send(t, r.url || u); }); } catch(e){} return r; }); };
   var s = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.send = function(){ var x = this; x.addEventListener('load', function(){ try { if (!x.responseType || x.responseType === 'text') send(x.responseText, x.responseURL); } catch(e){} }); return s.apply(this, arguments); };
   var seen = {};
@@ -139,34 +143,28 @@ fun isSavedList(source: Source, page: String, from: String): Boolean {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
-    val scope = rememberCoroutineScope()
     val found = remember { mutableStateListOf<Sound>() }
     var page by remember { mutableStateOf("") }
     var autoScroll by remember { mutableStateOf(auto) }
     var onlySaved by remember { mutableStateOf(true) }
     var skipped by remember { mutableStateOf(0) }
-    var imported by remember { mutableStateOf(0) }
-    var pending by remember { mutableStateOf(0) }
     var pages by remember { mutableStateOf(0) }
-    val gate = remember { Semaphore(4) }
-    var done by remember { mutableStateOf(0) }
-    var failed by remember { mutableStateOf(0) }
+    var loading by remember { mutableStateOf(0) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val progress by SyncService.progress.collectAsState()
     var status by remember { mutableStateOf(howTo(source)) }
     var web by remember { mutableStateOf<WebView?>(null) }
     val main = remember { Handler(Looper.getMainLooper()) }
 
     // Imports never get dropped: each batch is added to the library at once, and its downloads
-    // join a queue that runs a few at a time.
+    // go to the background service (with a notification), which keeps going if you leave the app.
     fun import(list: List<Sound>) {
         if (list.isEmpty()) return
         val fresh = Library.addAll(list)
         found.removeAll { s -> list.any { it.key == s.key } }
-        imported += fresh.size
-        pending += fresh.size
-        for (s in fresh) scope.launch {
-            gate.withPermit { Downloader.download(s).onSuccess { done++ }.onFailure { failed++ } }
-            pending--
-        }
+        SyncService.addFound(fresh.size)
+        SyncService.enqueue(context, fresh.map { it.key })
     }
 
     val bridge = remember {
@@ -206,7 +204,9 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
     }
 
     DisposableEffect(Unit) {
+        SyncService.listing(context, if (source == Source.TIKTOK) "TikTok" else "Instagram")
         onDispose {
+            SyncService.listing(context, null)
             web?.evaluateJavascript("window.__loopboxScroll && window.__loopboxScroll(false)", null)
             web?.destroy()
         }
@@ -227,6 +227,10 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
             }
             IconButton(onClick = { web?.reload() }) { Icon(Icons.Filled.Refresh, "Reload", tint = Color.White) }
         }
+        if (loading in 1..99) LinearProgressIndicator(progress = { loading / 100f }, modifier = Modifier.fillMaxWidth())
+        error?.let {
+            Text(it, color = Color(0xFFFF8A80), style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp))
+        }
         Box(Modifier.weight(1f)) {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
@@ -242,16 +246,33 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
                         settings.setSupportZoom(true)
                         settings.builtInZoomControls = true
                         settings.displayZoomControls = false
-                        if (source == Source.TIKTOK) settings.userAgentString = DESKTOP_UA
+                        settings.databaseEnabled = true
+                        // TikTok: the desktop site has the Favorites › Sounds list. Instagram: a plain
+                        // mobile Chrome; it draws an empty page for an in-app browser ("; wv").
+                        settings.userAgentString = when (source) {
+                            Source.TIKTOK -> DESKTOP_UA
+                            Source.INSTAGRAM -> chromeUa(settings.userAgentString)
+                        }
                         Downloader.userAgent = settings.userAgentString
                         CookieManager.getInstance().setAcceptCookie(true)
                         CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                         addJavascriptInterface(bridge, "LoopboxBridge")
                         val early = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
                         if (early) WebViewCompat.addDocumentStartJavaScript(this, CAPTURE_JS, setOf("*"))
-                        webChromeClient = WebChromeClient()
+                        webChromeClient = object : WebChromeClient() {
+                            override fun onProgressChanged(view: WebView, newProgress: Int) { loading = newProgress }
+                        }
                         webViewClient = object : WebViewClient() {
+                            override fun onReceivedError(view: WebView, request: WebResourceRequest, err: WebResourceError) {
+                                if (request.isForMainFrame) error = "Couldn't load the page: ${err.description}. Tap reload."
+                            }
+
+                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                                if (request.isForMainFrame && response.statusCode >= 400) error = "The site answered ${response.statusCode}. Tap reload."
+                            }
+
                             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
+                                error = null
                                 page = url
                                 if (!early) view.evaluateJavascript(CAPTURE_JS, null)
                             }
@@ -271,22 +292,25 @@ fun SyncScreen(source: Source, auto: Boolean, onClose: () -> Unit) {
             )
         }
         Column(Modifier.fillMaxWidth().background(Color(0xFF121212)).padding(12.dp)) {
-            if (pending > 0) LinearProgressIndicator(Modifier.fillMaxWidth().padding(bottom = 8.dp))
+            if (progress.waiting > 0) LinearProgressIndicator(
+                progress = { (progress.done + progress.failed).toFloat() / progress.queued.coerceAtLeast(1) },
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            )
             Text(
                 when {
                     found.isNotEmpty() -> "Found ${found.size} new saved sound${if (found.size == 1) "" else "s"}" +
-                        if (imported > 0) " · $imported imported" else ""
-                    imported > 0 -> "Imported $imported" + if (pending > 0) " · downloading $pending" else " · all downloaded"
+                        if (progress.found > 0) " · ${progress.found} imported" else ""
+                    progress.found > 0 -> "Imported ${progress.found} · ${progress.done} of ${progress.queued} downloaded"
                     else -> status
                 },
                 color = Color.White, style = MaterialTheme.typography.bodyMedium,
             )
             if (pages > 0) Text(
-                "Loading your whole list: page ${pages + 1}…",
+                "Loading your whole list: page ${pages + 1}… You can leave the app, it keeps going.",
                 color = Color.Gray, style = MaterialTheme.typography.bodySmall,
             )
-            if (failed > 0) Text(
-                "$failed couldn't download; they still play online and retry from the library",
+            if (progress.failed > 0) Text(
+                "${progress.failed} couldn't download; they still play online and retry from the library",
                 color = Color.Gray, style = MaterialTheme.typography.bodySmall,
             )
             if (skipped > 0 && onlySaved) Text(
