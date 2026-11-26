@@ -11,7 +11,11 @@ import java.io.File
 /** Where a sound came from. */
 enum class Source { TIKTOK, INSTAGRAM }
 
-/** One saved sound. [file] is the downloaded audio on the phone (null until downloaded). */
+/**
+ * One saved sound, or a saved video ([video]). [file] is the downloaded audio on the phone (null
+ * until downloaded). [videoUrl]: the last known address of the video (they expire; the feed
+ * finds a fresh one from [pageUrl]). A saved video plays its sound as audio like any other entry.
+ */
 data class Sound(
     val key: String,
     val source: Source,
@@ -23,6 +27,8 @@ data class Sound(
     val file: String? = null,
     val addedAt: Long = System.currentTimeMillis(),
     val liked: Boolean = false,
+    val video: Boolean = false,
+    val videoUrl: String? = null,
 )
 
 data class Playlist(val id: String, val name: String, val keys: List<String>)
@@ -35,6 +41,8 @@ data class LibraryState(
     val syncPages: Map<Source, String> = emptyMap(),
     /** Per source: the site's own request that lists the saved sounds, for syncing in the background. */
     val syncApis: Map<Source, String> = emptyMap(),
+    /** Per source: the same for saved videos. */
+    val videoApis: Map<Source, String> = emptyMap(),
 )
 
 /**
@@ -57,7 +65,8 @@ object Library {
 
     fun sound(key: String): Sound? = _state.value.sounds.firstOrNull { it.key == key }
 
-    /** Adds sounds not in the library yet; returns how many were new. */
+    /** Adds sounds not in the library yet; returns the new ones. */
+    @Synchronized
     fun addAll(found: List<Sound>): List<Sound> {
         val have = _state.value.sounds.map { it.key }.toSet()
         val fresh = found.filter { it.key !in have }.distinctBy { it.key }
@@ -108,6 +117,12 @@ object Library {
         if (_state.value.syncApis[source] != url) update { it.copy(syncApis = it.syncApis + (source to url)) }
     }
 
+    fun setVideoApi(source: Source, url: String) {
+        if (_state.value.videoApis[source] != url) update { it.copy(videoApis = it.videoApis + (source to url)) }
+    }
+
+    fun setVideoUrl(key: String, url: String) = updateSound(key) { it.copy(videoUrl = url) }
+
     private fun updateSound(key: String, change: (Sound) -> Sound) =
         update { s -> s.copy(sounds = s.sounds.map { if (it.key == key) change(it) else it }) }
 
@@ -142,6 +157,8 @@ object Library {
                     put("artist", x.artist); put("cover", x.cover ?: JSONObject.NULL)
                     put("remoteUrl", x.remoteUrl); put("pageUrl", x.pageUrl ?: JSONObject.NULL)
                     put("file", x.file ?: JSONObject.NULL); put("addedAt", x.addedAt); put("liked", x.liked)
+                    if (x.video) put("video", true)
+                    if (x.videoUrl != null) put("videoUrl", x.videoUrl)
                 })
             }
         })
@@ -155,6 +172,7 @@ object Library {
         root.put("recent", JSONArray(s.recent))
         root.put("syncPages", JSONObject().apply { s.syncPages.forEach { (k, v) -> put(k.name, v) } })
         root.put("syncApis", JSONObject().apply { s.syncApis.forEach { (k, v) -> put(k.name, v) } })
+        root.put("videoApis", JSONObject().apply { s.videoApis.forEach { (k, v) -> put(k.name, v) } })
         val tmp = File(dir, "library.json.tmp")
         tmp.writeText(root.toString())
         tmp.renameTo(file)
@@ -176,6 +194,8 @@ object Library {
                     file = o.optStringOrNull("file")?.takeIf { File(it).exists() },
                     addedAt = o.optLong("addedAt"),
                     liked = o.optBoolean("liked"),
+                    video = o.optBoolean("video"),
+                    videoUrl = o.optStringOrNull("videoUrl"),
                 )
             }
         } ?: emptyList()
@@ -190,7 +210,7 @@ object Library {
         fun map(name: String) = root.optJSONObject(name)?.let { o ->
             o.keys().asSequence().mapNotNull { k -> runCatching { Source.valueOf(k) to o.getString(k) }.getOrNull() }.toMap()
         } ?: emptyMap()
-        LibraryState(sounds, playlists, recent, map("syncPages"), map("syncApis"))
+        LibraryState(sounds, playlists, recent, map("syncPages"), map("syncApis"), map("videoApis"))
     } catch (e: Exception) {
         LibraryState()
     }

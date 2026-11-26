@@ -40,6 +40,12 @@ import dev.ketsuyumi.loopbox.sync.SyncScreen
 import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.ui.Accent
 import dev.ketsuyumi.loopbox.ui.FeedScreen
+import dev.ketsuyumi.loopbox.ui.SettingsScreen
+import dev.ketsuyumi.loopbox.data.Settings
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import dev.ketsuyumi.loopbox.ui.HomeScreen
 import dev.ketsuyumi.loopbox.ui.LibraryScreen
 import dev.ketsuyumi.loopbox.ui.LoopboxColors
@@ -55,6 +61,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Library.init(this)
+        Settings.init(this)
         PlayerConnection.connect(this)
         if (Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
 
@@ -63,12 +70,21 @@ class MainActivity : ComponentActivity() {
                 var tab by rememberSaveable { mutableStateOf(0) }
                 var nowPlaying by remember { mutableStateOf(false) }
                 var sync by remember { mutableStateOf<Pair<Source, Boolean>?>(null) }
+                var settings by remember { mutableStateOf(false) }
+                // Settings › Hide system bars: over the feed only; a swipe from the edge shows them for a moment.
+                val hideBars = Settings.hideSystemBars && tab == 0 && sync == null && !nowPlaying && !settings
+                LaunchedEffect(hideBars) {
+                    val bars = WindowCompat.getInsetsController(window, window.decorView)
+                    bars.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    if (hideBars) bars.hide(WindowInsetsCompat.Type.systemBars()) else bars.show(WindowInsetsCompat.Type.systemBars())
+                }
                 ProgressTicker()
 
                 Box(Modifier.fillMaxSize().background(Color.Black).safeDrawingPadding()) {
                     val open = sync
                     when {
                         open != null -> SyncScreen(open.first, open.second, onClose = { sync = null })
+                        settings -> SettingsScreen(onClose = { settings = false })
                         nowPlaying -> {
                             BackHandler { nowPlaying = false }
                             NowPlaying(onClose = { nowPlaying = false })
@@ -76,8 +92,8 @@ class MainActivity : ComponentActivity() {
                         else -> Column(Modifier.fillMaxSize()) {
                             Box(Modifier.weight(1f)) {
                                 when (tab) {
-                                    0 -> FeedScreen(onSync = { tab = 1 })
-                                    1 -> HomeScreen(onSync = { source, auto ->
+                                    0 -> FeedScreen(onSync = { tab = 1 }, onSettings = { settings = true })
+                                    1 -> HomeScreen(onSettings = { settings = true }, onSync = { source, auto ->
                                         // Sync now: in the background with a notification, once the list
                                         // request is known; otherwise the sync page, to find it first.
                                         if (auto && SyncService.syncNow(this@MainActivity, source)) {

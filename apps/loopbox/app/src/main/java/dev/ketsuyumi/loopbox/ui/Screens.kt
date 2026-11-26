@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -62,22 +63,27 @@ import java.util.Calendar
 // ---- Home ----
 
 @Composable
-fun HomeScreen(onSync: (Source, Boolean) -> Unit) {
+fun HomeScreen(onSync: (Source, Boolean) -> Unit, onSettings: () -> Unit = {}) {
     val state by Library.state.collectAsState()
     val recent = state.recent.mapNotNull { k -> state.sounds.firstOrNull { it.key == k } }
     val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
     LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
         item {
-            Text(
-                when (hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" },
-                color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(16.dp),
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when (hour) { in 5..11 -> "Good morning"; in 12..17 -> "Good afternoon"; else -> "Good evening" },
+                    color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(16.dp).weight(1f),
+                )
+                androidx.compose.material3.IconButton(onClick = onSettings) {
+                    Icon(androidx.compose.material.icons.Icons.Filled.Settings, "Settings", tint = Color.White)
+                }
+            }
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SyncCard(Source.TIKTOK, state.syncPages[Source.TIKTOK] != null || state.syncApis[Source.TIKTOK] != null, state.sounds.count { it.source == Source.TIKTOK }, onSync, Modifier.weight(1f))
-                SyncCard(Source.INSTAGRAM, state.syncPages[Source.INSTAGRAM] != null || state.syncApis[Source.INSTAGRAM] != null, state.sounds.count { it.source == Source.INSTAGRAM }, onSync, Modifier.weight(1f))
+                SyncCard(Source.TIKTOK, state.syncPages[Source.TIKTOK] != null || state.syncApis[Source.TIKTOK] != null, state.sounds.count { it.source == Source.TIKTOK && !it.video }, onSync, Modifier.weight(1f))
+                SyncCard(Source.INSTAGRAM, state.syncPages[Source.INSTAGRAM] != null || state.syncApis[Source.INSTAGRAM] != null, state.sounds.count { it.source == Source.INSTAGRAM && !it.video }, onSync, Modifier.weight(1f))
             }
         }
         if (recent.isNotEmpty()) {
@@ -88,7 +94,7 @@ fun HomeScreen(onSync: (Source, Boolean) -> Unit) {
                 }
             }
         }
-        val liked = state.sounds.filter { it.liked }
+        val liked = state.sounds.filter { it.liked && !it.video }
         if (liked.isNotEmpty()) {
             item { SectionTitle("Liked sounds") }
             item {
@@ -99,8 +105,9 @@ fun HomeScreen(onSync: (Source, Boolean) -> Unit) {
         }
         if (state.sounds.isNotEmpty()) {
             item { SectionTitle("Recently added") }
-            items(state.sounds.sortedByDescending { it.addedAt }.take(10), key = { "added-" + it.key }) { s ->
-                SoundRow(s, state.sounds.sortedByDescending { it.addedAt }, state.playlists)
+            val added = state.sounds.filter { !it.video }.sortedByDescending { it.addedAt }
+            items(added.take(10), key = { "added-" + it.key }) { s ->
+                SoundRow(s, added, state.playlists)
             }
         } else {
             item {
@@ -150,7 +157,7 @@ private fun Tile(s: Sound, queue: List<Sound>) {
 
 // ---- Library ----
 
-private enum class Filter(val label: String) { ALL("All"), LIKED("Liked"), TIKTOK("TikTok"), INSTAGRAM("Instagram"), MISSING("Not downloaded") }
+private enum class Filter(val label: String) { ALL("All"), LIKED("Liked"), TIKTOK("TikTok"), INSTAGRAM("Instagram"), MISSING("Not downloaded"), VIDEOS("Videos") }
 
 @Composable
 fun LibraryScreen() {
@@ -162,12 +169,14 @@ fun LibraryScreen() {
     val q = query.trim().lowercase()
     val shown = state.sounds
         .filter {
-            when (filter) {
-                Filter.ALL -> true
+            // Saved videos only under Videos; every other filter is sounds.
+            if (filter == Filter.VIDEOS) it.video
+            else !it.video && when (filter) {
                 Filter.LIKED -> it.liked
                 Filter.TIKTOK -> it.source == Source.TIKTOK
                 Filter.INSTAGRAM -> it.source == Source.INSTAGRAM
                 Filter.MISSING -> it.file == null
+                else -> true
             }
         }
         .filter { q.isEmpty() || it.title.lowercase().contains(q) || it.artist.lowercase().contains(q) }
@@ -183,7 +192,7 @@ fun LibraryScreen() {
         }
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${shown.size} sound${if (shown.size == 1) "" else "s"}", color = Color.Gray, modifier = Modifier.weight(1f))
-            val missing = state.sounds.filter { it.file == null }
+            val missing = state.sounds.filter { it.file == null && !it.video }
             val sync by SyncService.progress.collectAsState()
             if (missing.isNotEmpty()) TextButton(enabled = sync.waiting == 0, onClick = {
                 SyncService.enqueue(context, missing.map { it.key })

@@ -82,11 +82,12 @@ class SyncService : Service() {
         }
 
         /**
-         * "Sync now" in the background. Returns false when there's no remembered list request yet
-         * (the sync page has to be used once first).
+         * "Sync now" in the background. Returns false when the sync page hasn't been used yet
+         * (you have to log in there first).
          */
         fun syncNow(context: Context, source: dev.ketsuyumi.loopbox.data.Source): Boolean {
-            if (Library.state.value.syncApis[source] == null) return false
+            val s = Library.state.value
+            if (s.syncApis[source] == null && s.syncPages[source] == null) return false
             if (progress.value.listing != null) return true
             listing(context, if (source == dev.ketsuyumi.loopbox.data.Source.TIKTOK) "TikTok" else "Instagram")
             pendingSync = source
@@ -132,18 +133,17 @@ class SyncService : Service() {
         val source = pendingSync
         if (intent?.action == ACTION_SYNC && source != null && background == null) {
             pendingSync = null
-            val api = Library.state.value.syncApis[source]
-            if (api == null) { listing(this, null); return START_NOT_STICKY }
             background = BackgroundSync(
-                this, source, api,
-                onFound = { added, pages -> _progress.update { it.copy(found = it.found + added, pages = maxOf(it.pages, pages)) } },
-                onEnd = { ok ->
+                this, source,
+                onPages = { n -> _progress.update { it.copy(pages = n) } },
+                onEnd = { ok, sounds, videos ->
                     background = null
                     _progress.update {
                         it.copy(
                             listing = null,
-                            note = if (ok) "${it.found} new sound${if (it.found == 1) "" else "s"}"
-                            else "Couldn't load the list. Open the sync page once and try again.",
+                            note = if (!ok) "Couldn't load your lists. Open the sync page and log in again."
+                            else "$sounds new sound${if (sounds == 1) "" else "s"}" +
+                                if (videos > 0) ", $videos new video${if (videos == 1) "" else "s"}" else "",
                         )
                     }
                 },
@@ -213,7 +213,7 @@ class SyncService : Service() {
     }
 
     override fun onDestroy() {
-        background?.finish(false)
+        background?.finish()
         running = false
         scope.cancel()
         super.onDestroy()
