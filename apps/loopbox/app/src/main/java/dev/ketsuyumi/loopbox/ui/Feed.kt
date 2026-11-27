@@ -99,6 +99,8 @@ import dev.ketsuyumi.loopbox.playback.VideoResolver
 import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.sync.LiveFeedWeb
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import dev.ketsuyumi.loopbox.sync.SyncLog
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
@@ -260,13 +262,36 @@ private fun LiveFeed(url: String, look: Look) {
     var status by remember { mutableStateOf("Opening TikTok…") }
     var showPage by remember { mutableStateOf(false) }
     var hidden by remember { mutableIntStateOf(0) }
+    var failed by remember { mutableStateOf<Pair<String, String>?>(null) } // key, why
+    val retried = remember { HashSet<String>() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     val pager = rememberPagerState { items.size }
 
     DisposableEffect(player) {
         PlayerConnection.pause() // one sound at a time
         val l = object : Player.Listener {
-            override fun onRenderedFirstFrame() { shownKey = loadedKey }
+            override fun onRenderedFirstFrame() { shownKey = loadedKey; failed = null }
+            /** The video can't be played: at least play its sound (with the spinning record). */
+            fun soundInstead(s: Sound, why: String) {
+                failed = s.key to why
+                if (s.remoteUrl != s.videoUrl && loadedKey == s.key) {
+                    player.setMediaItem(MediaItem.fromUri(s.remoteUrl)); player.prepare(); player.playWhenReady = true
+                }
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) { playing = isPlaying || player.playWhenReady }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                val s = items.firstOrNull { it.key == loadedKey } ?: return
+                val why = VideoResolver.why(error)
+                SyncLog.add("video didn't play ($why): ${s.videoUrl?.let { android.net.Uri.parse(it).host }} · ${s.pageUrl}")
+                // Once: a fresh address from the video's page.
+                if (retried.add(s.key)) scope.launch {
+                    val url = VideoResolver.refresh(s)
+                    if (url != null && loadedKey == s.key) {
+                        SyncLog.add("retrying with a fresh address (${android.net.Uri.parse(url).host})")
+                        player.setMediaItem(MediaItem.fromUri(url)); player.prepare(); player.playWhenReady = true
+                    } else soundInstead(s, why)
+                } else soundInstead(s, why)
+            }
         }
         player.addListener(l)
         onDispose { player.removeListener(l); player.release() }
@@ -286,7 +311,7 @@ private fun LiveFeed(url: String, look: Look) {
         snapshotFlow { pager.settledPage }.distinctUntilChanged().collect { page ->
             val s = items.getOrNull(page) ?: return@collect
             if (loadedKey == s.key) return@collect
-            loadedKey = s.key; shownKey = null
+            loadedKey = s.key; shownKey = null; failed = null
             PlayerConnection.pause()
             player.setMediaItem(MediaItem.fromUri(s.videoUrl ?: return@collect))
             player.prepare()
@@ -346,6 +371,7 @@ private fun LiveFeed(url: String, look: Look) {
         val current = page == pager.settledPage
         FeedPage(
             s, if (shownKey == s.key) player else null, look, live = true,
+            problem = failed?.takeIf { it.first == s.key }?.second?.let { "Video couldn't load ($it), playing its sound" },
             current = current, playing = current && playing, progress = if (current) progress else 0f,
             onToggle = { if (player.playWhenReady) player.pause() else player.play(); playing = player.playWhenReady },
             speed = LiveFeeds.speed, onSpeed = { LiveFeeds.speed = it; if (Settings.rememberSpeed) Settings.speed = it },
@@ -375,9 +401,20 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
     val video = remember { videoPlayer(context).apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE } }
     var videoKey by remember { mutableStateOf<String?>(null) }   // whose video is loaded
     var shownKey by remember { mutableStateOf<String?>(null) }   // whose video has a first frame
+    val retried = remember { HashSet<String>() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val currentFeed by androidx.compose.runtime.rememberUpdatedState(feed)
     DisposableEffect(video) {
         val l = object : Player.Listener {
             override fun onRenderedFirstFrame() { shownKey = videoKey }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                val s = currentFeed.firstOrNull { it.key == videoKey } ?: return
+                SyncLog.add("video didn't play (${VideoResolver.why(error)}): ${s.pageUrl}")
+                if (retried.add(s.key)) scope.launch {
+                    val url = VideoResolver.refresh(s)
+                    if (url != null && videoKey == s.key) { video.setMediaItem(MediaItem.fromUri(url)); video.prepare(); video.playWhenReady = PlayerConnection.isPlaying }
+                }
+            }
         }
         video.addListener(l)
         onDispose { video.removeListener(l); video.release() }
@@ -447,7 +484,7 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
 private fun FeedPage(
     s: Sound, video: ExoPlayer?, look: Look, live: Boolean,
     current: Boolean, playing: Boolean, progress: Float, onToggle: () -> Unit,
-    speed: Float, onSpeed: (Float) -> Unit, onSeek: (Float) -> Unit,
+    speed: Float, onSpeed: (Float) -> Unit, onSeek: (Float) -> Unit, problem: String? = null,
 ) {
     val (ui0, dx, dy) = look
     val context = LocalContext.current
@@ -545,6 +582,13 @@ private fun FeedPage(
             Icons.Filled.PlayArrow, "Paused", tint = Color.White.copy(alpha = 0.8f),
             modifier = Modifier.align(Alignment.Center).size(88.dp),
         )
+        problem?.let {
+            Text(
+                it, color = Color.White, style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.Center).padding(top = 320.dp, start = 32.dp, end = 32.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).background(Color(0xAA000000)).padding(10.dp),
+            )
+        }
         if (heart > 0) Icon(Icons.Filled.Favorite, null, tint = Accent, modifier = Modifier.align(Alignment.Center).size(120.dp))
         if (held) Text(
             "2x", color = Color.White, fontWeight = FontWeight.Bold,

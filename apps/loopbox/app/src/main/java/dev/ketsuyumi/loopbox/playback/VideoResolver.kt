@@ -29,9 +29,37 @@ object VideoResolver {
 
     /** Headers for streaming a video address. */
     fun headers(url: String): Map<String, String> = buildMap {
+        val instagram = "instagram" in url || "fbcdn" in url || "cdninstagram" in url
         put("User-Agent", USER_AGENT)
-        put("Referer", if ("instagram" in url || "fbcdn" in url || "cdninstagram" in url) "https://www.instagram.com/" else "https://www.tiktok.com/")
-        CookieManager.getInstance().getCookie(url)?.let { put("Cookie", it) }
+        put("Referer", if (instagram) "https://www.instagram.com/" else "https://www.tiktok.com/")
+        // TikTok's video servers check your TikTok cookies (tt_chain_token…), but their addresses
+        // aren't always on tiktok.com (EU: tiktokcdn-eu.com, tiktokv.eu…), so send tiktok.com's.
+        val cm = CookieManager.getInstance()
+        val site = if (instagram) "https://www.instagram.com" else "https://www.tiktok.com"
+        val cookies = listOfNotNull(cm.getCookie(url), cm.getCookie(site))
+            .flatMap { it.split(';') }.map { it.trim() }.filter { it.isNotEmpty() }
+            .distinctBy { it.substringBefore('=') }
+        if (cookies.isNotEmpty()) put("Cookie", cookies.joinToString("; "))
+    }
+
+    /** A fresh address for a video whose address didn't play: from its page, skipping what's cached. */
+    suspend fun refresh(s: Sound): String? {
+        if (s.source != Source.TIKTOK) return null
+        val page = s.pageUrl ?: return null
+        val found = withContext(Dispatchers.IO) { runCatching { fromPage(page, s) }.getOrNull() } ?: return null
+        cache[s.key] = found
+        if (s.video && Library.sound(s.key) != null) Library.setVideoUrl(s.key, found)
+        return found
+    }
+
+    /** Why a video didn't play, short: the HTTP status when there was one. */
+    fun why(e: androidx.media3.common.PlaybackException): String {
+        var c: Throwable? = e
+        while (c != null) {
+            if (c is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) return "HTTP ${c.responseCode}"
+            c = c.cause
+        }
+        return e.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
     }
 
     suspend fun videoFor(s: Sound): String? {
