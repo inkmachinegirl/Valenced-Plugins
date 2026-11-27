@@ -133,7 +133,7 @@ fun LiveFeedWeb(
         asked = postCursor
         val url = "https://www.tiktok.com/api/post/item_list/?$b&secUid=${android.net.Uri.encode(id)}&count=30&cursor=$postCursor&coverFormat=2"
         SyncLog.add("profile @$profileOf: asking for videos from $postCursor")
-        w.evaluateJavascript("window.fetch(" + org.json.JSONObject.quote(url) + ", { credentials: 'include' })", null)
+        w.evaluateJavascript("window.__loopboxFetch(" + org.json.JSONObject.quote(url) + ", 'profile @$profileOf videos')", null)
     }
     // Near the end: ask for the next batch the way the page does (its fetch signs the request; each
     // ask brings new videos), every few seconds until there are enough again. Scrolling stays as a backup.
@@ -142,8 +142,7 @@ fun LiveFeedWeb(
         val req = feedRequest ?: return@LaunchedEffect
         while (more) {
             w.evaluateJavascript(
-                "(function(u){ try { var x = new URL(u); ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ x.searchParams.delete(k); });" +
-                    " window.fetch(x.toString(), { credentials: 'include' }); } catch(e){} })(" + org.json.JSONObject.quote(req) + ")",
+                "window.__loopboxFetch && window.__loopboxFetch(" + org.json.JSONObject.quote(req) + ", 'more for the feed')",
                 null,
             )
             kotlinx.coroutines.delay(4000)

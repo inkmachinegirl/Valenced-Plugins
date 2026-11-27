@@ -41,6 +41,32 @@ internal val CAPTURE_JS = """
       more(t, from);
     } catch(e){}
   }
+  // TikTok refuses API requests without a signature (X-Bogus). Its page has the signer
+  // (byted_acrawler.frontierSign, given the query); requests Loopbox makes itself are signed
+  // with it before they go. Answers are logged; the response hooks below still take them in.
+  function sign(url){
+    try {
+      var a = window.byted_acrawler;
+      if (!a || !a.frontierSign || !/tiktok\.com/.test(location.host)) return url;
+      var q = url.split('?')[1] || '';
+      var r = a.frontierSign(q);
+      var xb = r && (r['X-Bogus'] || r.xbogus);
+      if (xb) return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'X-Bogus=' + encodeURIComponent(xb);
+    } catch(e){ log('signing failed: ' + e); }
+    return url;
+  }
+  window.__loopboxFetch = function(url, tag, headers){
+    var u; try { u = new URL(url, location.href); clean(u); url = u.toString(); } catch(e){}
+    var signed = sign(url);
+    if (signed === url && /tiktok\.com/.test(location.host)) log((tag || 'ask') + ': no signer on this page');
+    return window.fetch(signed, { credentials: 'include', headers: headers || {} }).then(function(r){
+      return r.text().then(function(t){
+        var ok = r.status === 200 && KEYS.test(t || '');
+        log((tag || 'ask') + ' answer ' + r.status + ' · ' + (t || '').length + ' chars' + (ok ? '' : ' · ' + (t || '').slice(0, 100)));
+        return [r.status, t, ok];
+      });
+    }, function(e){ log((tag || 'ask') + ' failed: ' + e); return [0, '', false]; });
+  };
   var paged = {};
   function clean(u){ ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ u.searchParams.delete(k); }); }
   function more(t, from){
@@ -78,14 +104,8 @@ internal val CAPTURE_JS = """
       if (tries < 4) setTimeout(function(){ get(url, tries + 1); }, 2000 * Math.pow(2, tries));
       else done('stuck:' + st);
     }
-    log('ask ' + short(url) + (tries ? ' (try ' + (tries + 1) + ')' : ''));
-    window.fetch(url, { credentials: 'include', headers: h })
-      .then(function(r){ return r.text().then(function(t){ return [r.status, t]; }); })
-      .then(function(a){
-        var ok = a[0] === 200 && KEYS.test(a[1] || '');
-        log('answer ' + a[0] + ' · ' + (a[1] || '').length + ' chars' + (ok ? '' : ' · no sounds: ' + (a[1] || '').slice(0, 120)));
-        if (!ok) retry(a[0]);
-      }, function(e){ log('failed: ' + e); retry(0); });
+    window.__loopboxFetch(url, 'ask ' + short(url) + (tries ? ' (try ' + (tries + 1) + ')' : ''), h)
+      .then(function(a){ if (!a[2]) retry(a[0]); });
   }
   window.__loopboxList = function(url){
     var u; try { u = new URL(url, location.href); } catch(e){ return; }

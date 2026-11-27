@@ -47,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -93,11 +94,12 @@ private fun Profile(name: String) {
     var watching by remember { mutableStateOf<Int?>(null) }
     var following by remember { mutableStateOf<Boolean?>(null) }
     var waited by remember { mutableStateOf(0) }
+    var showPage by remember { mutableStateOf(false) }
     val grid = rememberLazyGridState()
     // Load more of their videos when the grid gets near its end.
     val needMore by remember { derivedStateOf { (grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) > videos.size - 6 } }
 
-    BackHandler { if (watching != null) watching = null else Profiles.close() }
+    BackHandler { if (showPage) showPage = false else if (watching != null) watching = null else Profiles.close() }
     LaunchedEffect(Unit) { PlayerConnection.pause(); while (videos.isEmpty()) { delay(200); waited++ } }
 
     /** Their follow button on the TikTok page: [click] presses it; answers its text ("Follow", "Following", "Friends"). */
@@ -117,7 +119,8 @@ private fun Profile(name: String) {
 
     Box(Modifier.fillMaxSize().background(Background)) {
         LiveFeedWeb(
-            "https://www.tiktok.com/@$name", needMore && watching == null, Modifier.fillMaxSize(),
+            "https://www.tiktok.com/@$name", needMore && watching == null && !showPage,
+            Modifier.fillMaxSize().zIndex(if (showPage) 5f else 0f),
             profileOf = name, onProfile = { info = it }, onWeb = { web = it },
         ) { found ->
             val have = videos.map { it.key }.toHashSet()
@@ -189,12 +192,35 @@ private fun Profile(name: String) {
             items(videos, key = { it.key }) { s -> VideoTile(s) { watching = videos.indexOf(s) } }
             if (videos.isEmpty()) item(span = full) {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    if (waited < 100) CircularProgressIndicator(color = Accent)
-                    else Text(if ((info?.videos ?: -1) == 0L) "No videos yet" else "Couldn't load their videos", color = Color.Gray)
+                    if ((info?.videos ?: -1) == 0L) Text("No videos yet", color = Color.Gray)
+                    else {
+                        if (waited < 100) CircularProgressIndicator(color = Accent)
+                        else Text("TikTok hasn't sent their videos yet.", color = Color.Gray)
+                        if (waited >= 25) {
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "Show TikTok page", color = Color.Black, fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clip(CircleShape).background(Accent).clickable { showPage = true }.padding(horizontal = 20.dp, vertical = 10.dp),
+                            )
+                            Text(
+                                "Scroll their videos there; they're picked up here as they load.",
+                                color = Color.Gray, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                                modifier = Modifier.padding(top = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
 
+        // Their TikTok page in front, to scroll it yourself.
+        if (showPage) Box(Modifier.fillMaxSize().zIndex(6f)) {
+            Text(
+                "Back (${videos.size} videos)", color = Color.Black, fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
+                    .clip(CircleShape).background(Accent).clickable { showPage = false }.padding(horizontal = 20.dp, vertical = 10.dp),
+            )
+        }
         // A video: their videos full screen, from that one.
         watching?.let { start ->
             val pager = rememberPagerState(initialPage = start) { videos.size }
