@@ -57,6 +57,8 @@ fun LiveFeedWeb(
     url: String, more: Boolean, modifier: Modifier, onStatus: (String) -> Unit = {},
     /** A profile page: whose ([url] is tiktok.com/@name); its own posts are taken, and [onProfile] gets its details. */
     profileOf: String? = null, onProfile: (Extractor.Profile) -> Unit = {}, onWeb: (WebView?) -> Unit = {},
+    /** Everything the page receives (text, request), on the page's thread: e.g. comments. */
+    onRaw: ((String, String) -> Unit)? = null,
     onVideos: (List<Sound>) -> Unit,
 ) {
     val main = remember { Handler(Looper.getMainLooper()) }
@@ -86,6 +88,7 @@ fun LiveFeedWeb(
             fun found(text: String, page: String, from: String): Boolean {
                 val f = requestPath(from)
                 main.post { responses++; status() }
+                onRaw?.invoke(text, from)
                 // The feed comes from the site's requests, or is built into the page ("embedded").
                 // A profile: its details, and its own posts (/api/post/…), not suggestions.
                 if (profileOf != null) {

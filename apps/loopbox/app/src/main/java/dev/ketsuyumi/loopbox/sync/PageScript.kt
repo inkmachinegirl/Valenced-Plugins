@@ -20,7 +20,7 @@ package dev.ketsuyumi.loopbox.sync
 internal val CAPTURE_JS = """
 (function(){
   if (window.__loopbox) return; window.__loopbox = true;
-  var KEYS = /playUrl|play_url|playAddr|play_addr|progressive_download_url|video_versions|followerCount/;
+  var KEYS = /playUrl|play_url|playAddr|play_addr|progressive_download_url|video_versions|followerCount|"cid"/;
   var LIST = /collect|favorite|favourite|music_list|musiclist|saved|audio|clips/i;
   // Only the request's path says what list it is: the query has words like data_collection_enabled.
   function isList(from){ try { return /^https?:/.test(from || '') && LIST.test(new URL(from, location.href).pathname); } catch(e){ return false; } }

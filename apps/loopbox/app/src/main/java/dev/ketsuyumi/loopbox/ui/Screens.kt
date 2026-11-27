@@ -66,6 +66,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
@@ -186,7 +188,7 @@ private fun SyncCard(source: Source, hasPage: Boolean, count: Int, onSync: (Sour
  */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-fun VideoTile(s: Sound, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) {
+fun VideoTile(s: Sound, onLongClick: (() -> Unit)? = null, selected: Boolean? = null, onClick: () -> Unit) {
     val playing = PlayerConnection.currentKey == s.key
     Box(
         Modifier.fillMaxWidth().aspectRatio(3f / 4f).background(Surface2)
@@ -209,6 +211,13 @@ fun VideoTile(s: Sound, onLongClick: (() -> Unit)? = null, onClick: () -> Unit) 
         }
         if (playing) Icon(Icons.Filled.GraphicEq, "Playing", tint = Accent, modifier = Modifier.align(Alignment.TopEnd).padding(6.dp).size(16.dp))
         if (s.liked) Icon(Icons.Filled.Favorite, "Liked", tint = Accent, modifier = Modifier.align(Alignment.TopStart).padding(6.dp).size(14.dp))
+        // Batch select: a tick in a circle, filled when selected.
+        if (selected != null) Box(
+            Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                .background(if (selected) Accent else Color(0x66000000))
+                .border(2.dp, Color.White, androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center,
+        ) { if (selected) Icon(Icons.Filled.Check, "Selected", tint = Color.White, modifier = Modifier.size(14.dp)) }
     }
 }
 

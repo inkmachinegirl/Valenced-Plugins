@@ -52,6 +52,53 @@ object VideoResolver {
         return found
     }
 
+    /**
+     * The address to download a video post from (Settings › Downloads › quality): as played, or
+     * from its page the H.264 / highest-bitrate copy.
+     */
+    suspend fun downloadUrl(s: Sound): String? {
+        val pref = dev.ketsuyumi.loopbox.data.Settings.downloadQuality
+        if (pref != "auto" && s.source == Source.TIKTOK && s.pageUrl != null) {
+            val picked = withContext(Dispatchers.IO) {
+                runCatching {
+                    val html = get(s.pageUrl) ?: return@runCatching null
+                    val json = Regex("""<script[^>]*id="__UNIVERSAL_DATA_FOR_REHYDRATION__"[^>]*>(.*?)</script>""", RegexOption.DOT_MATCHES_ALL).find(html)?.groupValues?.get(1)
+                        ?: return@runCatching null
+                    val id = s.key.substringAfter(':')
+                    bestOf(json, id, pref)
+                }.getOrNull()
+            }
+            if (picked != null) return picked
+        }
+        return if (s.videoUrl != null && fresh(s.videoUrl)) s.videoUrl else refresh(s) ?: s.videoUrl
+    }
+
+    /** From a page's data, the video [id]'s bitrateInfo copy: "h264" (H.264) or "best" (highest bitrate). */
+    private fun bestOf(json: String, id: String, pref: String): String? {
+        val root = org.json.JSONTokener(json).nextValue()
+        var out: String? = null
+        fun walk(n: Any?, depth: Int) {
+            if (out != null || depth > 30) return
+            when (n) {
+                is org.json.JSONObject -> {
+                    val v = n.optJSONObject("video")
+                    val list = v?.optJSONArray("bitrateInfo")
+                    if (list != null && n.optString("id") == id) {
+                        val all = (0 until list.length()).mapNotNull { list.optJSONObject(it) }
+                        val pool = if (pref == "h264") all.filter { it.optString("CodecType").contains("h264", true) }.ifEmpty { all } else all
+                        val c = pool.maxByOrNull { it.optLong("Bitrate") }
+                        out = c?.optJSONObject("PlayAddr")?.optJSONArray("UrlList")?.optString(0)?.takeIf { it.startsWith("http") }
+                        return
+                    }
+                    n.keys().forEach { walk(n.opt(it), depth + 1) }
+                }
+                is org.json.JSONArray -> for (i in 0 until n.length()) walk(n.opt(i), depth + 1)
+            }
+        }
+        walk(root, 0)
+        return out
+    }
+
     /** Why a video didn't play, short: the HTTP status when there was one. */
     fun why(e: androidx.media3.common.PlaybackException): String {
         var c: Throwable? = e

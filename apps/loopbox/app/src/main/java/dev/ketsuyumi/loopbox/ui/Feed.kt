@@ -37,6 +37,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.PlayArrow
@@ -220,6 +222,12 @@ private object LiveFeeds {
     val lists = HashMap<String, androidx.compose.runtime.snapshots.SnapshotStateList<Sound>>()
     fun of(url: String) = lists.getOrPut(url) { mutableStateListOf() }
     val position = HashMap<String, Int>()
+
+    /** Takes videos out of every feed (hidden author, blocked audio), except the one on screen. */
+    fun drop(what: (Sound) -> Boolean) = lists.values.forEach { l ->
+        val keep = PlayerConnection.currentKey
+        l.removeAll { what(it) && it.key != keep }
+    }
     var speed by mutableFloatStateOf(if (Settings.rememberSpeed) Settings.speed else 1f)
 }
 
@@ -235,6 +243,22 @@ private fun passes(s: Sound): Boolean {
     if (Settings.hideSeries && "series" in f) return false
     if (Settings.hideSubscriber && "subscriber" in f) return false
     if (Settings.hideVerified && "verified" in f) return false
+    // Views / likes / date limits (unknown counts and dates pass).
+    fun lim(v: String) = v.replace(",", "").replace(".", "").trim().toLongOrNull()
+    lim(Settings.minViews)?.let { if (s.views in 0 until it) return false }
+    lim(Settings.maxViews)?.let { if (s.views > it) return false }
+    lim(Settings.minLikes)?.let { if (s.likes in 0 until it) return false }
+    lim(Settings.maxLikes)?.let { if (s.likes > it) return false }
+    if (Settings.dateFrom > 0 && s.postedAt in 1 until Settings.dateFrom) return false
+    if (Settings.dateTo > 0 && s.postedAt > Settings.dateTo + 86_399_999) return false
+    // Hidden authors, blocked audio, regions.
+    val user = s.user?.lowercase()
+    if (user != null && Settings.hiddenAuthors.lines().any { it.trim().lowercase() == user }) return false
+    if (s.musicKey != null && Settings.blockedAudio.lines().any { it.substringBefore('|') == s.musicKey }) return false
+    if (Settings.filterRegion && s.region != null) {
+        val allowed = Settings.regions.split(',', ' ').map { it.trim().uppercase() }.filter { it.length == 2 }
+        if (allowed.isNotEmpty() && s.region.uppercase() !in allowed) return false
+    }
     val words = Settings.hiddenWords.split(',').map { it.trim().lowercase() }.filter { it.isNotEmpty() }
     if (words.isNotEmpty()) {
         val text = (s.title + " " + s.artist + " " + (s.user ?: "")).lowercase()
@@ -314,7 +338,7 @@ private fun LiveFeed(url: String, look: Look) {
         return
     }
     // Paused while a profile is open over it.
-    VideoPager(items, look, pager, active = Profiles.user == null)
+    VideoPager(items, look, pager, active = Profiles.user == null && !(Settings.pauseForComments && CommentsOpen.video != null))
 }
 
 /**
@@ -479,6 +503,11 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
         onDispose { video.removeListener(l); video.release() }
     }
     LaunchedEffect(PlayerConnection.isPlaying) { video.playWhenReady = PlayerConnection.isPlaying }
+    var pausedForComments by remember { mutableStateOf(false) }
+    LaunchedEffect(CommentsOpen.video) {
+        if (CommentsOpen.video != null && Settings.pauseForComments && PlayerConnection.isPlaying) { PlayerConnection.pause(); pausedForComments = true }
+        else if (CommentsOpen.video == null && pausedForComments) { PlayerConnection.toggle(); pausedForComments = false }
+    }
     LaunchedEffect(PlayerConnection.speed) { video.setPlaybackSpeed(PlayerConnection.speed) }
 
     if (feed.isEmpty()) {
@@ -736,6 +765,9 @@ private fun FeedPage(
                     })
                 }
             }
+            if (Settings.showComments && s.key.startsWith("ttv:")) RailButton(Icons.Filled.ChatBubble, countOr(s.comments, "Comments"), Color.White) {
+                CommentsOpen.video = s
+            }
             if (Settings.showShare) s.pageUrl?.let { url ->
                 RailButton(Icons.Filled.Share, countOr(s.shares, "Share"), Color.White) {
                     confirmed("share", Settings.confirmShare) { shareLink(context, url) }
@@ -743,6 +775,47 @@ private fun FeedPage(
             }
             if (Settings.showSpeed) RailButton(Icons.Filled.Speed, speedLabel(speed), if (speed != 1f) Accent else Color.White) {
                 onSpeed(when (speed) { 1f -> 1.5f; 1.5f -> 2f; else -> 1f })
+            }
+            if (Settings.showMore) Box {
+                var more by remember { mutableStateOf(false) }
+                val scope = androidx.compose.runtime.rememberCoroutineScope()
+                fun toast(t: String) = android.widget.Toast.makeText(context, t, android.widget.Toast.LENGTH_SHORT).show()
+                RailButton(Icons.Filled.MoreHoriz, "More", Color.White) { more = true }
+                DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
+                    if (s.video) DropdownMenuItem(text = { Text("Download video") }, onClick = {
+                        more = false; toast("Downloading…")
+                        scope.launch { dev.ketsuyumi.loopbox.sync.Saver.saveVideo(context, s).fold({ toast("Saved to Movies/${Settings.videoFolder}") }, { toast("Couldn't save: ${it.message}") }) }
+                    })
+                    DropdownMenuItem(text = { Text("Save sound to Music") }, onClick = {
+                        more = false; toast("Saving the sound…")
+                        scope.launch { dev.ketsuyumi.loopbox.sync.Saver.saveSound(context, s).fold({ toast("Saved to Music/${Settings.soundFolder}") }, { toast("Couldn't save: ${it.message}") }) }
+                    })
+                    s.user?.let { u ->
+                        DropdownMenuItem(text = { Text("Hide @$u") }, onClick = {
+                            more = false
+                            Settings.hiddenAuthors = (Settings.hiddenAuthors.lines().filter { it.isNotBlank() } + u).distinct().joinToString("\n")
+                            LiveFeeds.drop { it.user.equals(u, ignoreCase = true) }
+                            toast("@$u hidden from your feeds (Settings › Filters to undo)")
+                        })
+                    }
+                    s.musicKey?.let { k ->
+                        DropdownMenuItem(text = { Text("Block this audio") }, onClick = {
+                            more = false
+                            Settings.blockedAudio = (Settings.blockedAudio.lines().filter { it.isNotBlank() } + "$k|${s.musicTitle ?: "audio"}").distinctBy { it.substringBefore('|') }.joinToString("\n")
+                            LiveFeeds.drop { it.musicKey == k }
+                            toast("Audio blocked (Settings › Filters to undo)")
+                        })
+                    }
+                    s.pageUrl?.let { url ->
+                        DropdownMenuItem(text = { Text("Copy link") }, onClick = {
+                            more = false
+                            val clean = if (Settings.sanitizeLinks) url.substringBefore('?') else url
+                            (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("link", clean))
+                            toast("Link copied")
+                        })
+                    }
+                }
             }
             if (Settings.showDisc) Record(s, 46.dp, if (playing) angle else 0f, Modifier)
         }

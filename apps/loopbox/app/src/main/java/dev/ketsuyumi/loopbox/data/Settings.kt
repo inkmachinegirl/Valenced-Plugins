@@ -35,6 +35,8 @@ object Settings {
     var showLike by bool("showLike", true)
     var showSave by bool("showSave", true)
     var showShare by bool("showShare", true)
+    var showComments by bool("showComments", true)
+    var showMore by bool("showMore", true)
     var showSpeed by bool("showSpeed", true)
     var showDisc by bool("showDisc", true)
     var showUploadDate by bool("showUploadDate", true)
@@ -73,6 +75,39 @@ object Settings {
     var hideVerified by bool("hideVerified", false)
     /** Comma-separated words; videos whose caption or author has one are hidden. */
     var hiddenWords by string("hiddenWords", "")
+    /** Views / likes limits ("" = no limit) and a date range (ms, 0 = any). */
+    var minViews by string("minViews", "")
+    var maxViews by string("maxViews", "")
+    var minLikes by string("minLikes", "")
+    var maxLikes by string("maxLikes", "")
+    var dateFrom by long("dateFrom", 0)
+    var dateTo by long("dateTo", 0)
+    /** Hidden authors (@usernames) and blocked audio ("key|title"), one per line; added from a video's ⋯ menu. */
+    var hiddenAuthors by string("hiddenAuthors", "")
+    var blockedAudio by string("blockedAudio", "")
+    /** Only videos posted from these regions (two-letter codes, comma-separated). */
+    var filterRegion by bool("filterRegion", false)
+    var regions by string("regions", "")
+
+    // ---- Comments ----
+    var commentUsernames by bool("commentUsernames", true)
+    var exactCommentTime by bool("exactCommentTime", true)
+    /** "collapse" (… More) or "expand" (all at once). */
+    var longComments by string("longComments", "expand")
+    var copyWithoutName by bool("copyWithoutName", true)
+    var pauseForComments by bool("pauseForComments", false)
+    /** Comma-separated words / usernames whose comments are hidden. */
+    var blockCommentWords by string("blockCommentWords", "")
+    var blockCommentUsers by string("blockCommentUsers", "")
+
+    // ---- Downloads ----
+    /** "auto" (as played), "h264" or "best" (highest bitrate). */
+    var downloadQuality by string("downloadQuality", "auto")
+    var namesWithAuthor by bool("namesWithAuthor", true)
+    /** Folders under the phone's Movies and Music (videos, sounds). */
+    var videoFolder by string("videoFolder", "Loopbox")
+    var soundFolder by string("soundFolder", "Loopbox")
+    var batchSelect by bool("batchSelect", true)
 
     // ---- Playback ----
     /** Loop each video/sound until you swipe (off: go on to the next one). */
@@ -150,6 +185,7 @@ object Settings {
 
     private fun bool(key: String, default: Boolean) = pref(key, default, { k, d -> getBoolean(k, d) }, { k, v -> putBoolean(k, v) })
     private fun int(key: String, default: Int) = pref(key, default, { k, d -> getInt(k, d) }, { k, v -> putInt(k, v) })
+    private fun long(key: String, default: Long) = pref(key, default, { k, d -> getLong(k, d) }, { k, v -> putLong(k, v) })
     private fun float(key: String, default: Float) = pref(key, default, { k, d -> getFloat(k, d) }, { k, v -> putFloat(k, v) })
     private fun string(key: String, default: String) = pref(key, default, { k, d -> getString(k, d) ?: d }, { k, v -> putString(k, v) })
 }

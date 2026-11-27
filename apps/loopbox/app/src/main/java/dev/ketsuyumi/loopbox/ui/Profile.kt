@@ -60,6 +60,7 @@ import dev.ketsuyumi.loopbox.playback.PlayerConnection
 import dev.ketsuyumi.loopbox.sync.Extractor
 import dev.ketsuyumi.loopbox.sync.LiveFeedWeb
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** The TikTok profile open in the app (its @username), over whatever was on screen. */
 object Profiles {
@@ -95,11 +96,16 @@ private fun Profile(name: String) {
     var following by remember { mutableStateOf<Boolean?>(null) }
     var waited by remember { mutableStateOf(0) }
     var showPage by remember { mutableStateOf(false) }
+    // Batch select (Settings › Downloads): hold a video to start, tap to add, then save them.
+    val selected = remember { mutableStateListOf<String>() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var saving by remember { mutableStateOf<String?>(null) }
     val grid = rememberLazyGridState()
     // Load more of their videos when the grid gets near its end.
     val needMore by remember { derivedStateOf { (grid.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) > videos.size - 6 } }
 
-    BackHandler { if (showPage) showPage = false else if (watching != null) watching = null else Profiles.close() }
+    BackHandler { if (showPage) showPage = false else if (watching != null) watching = null else if (selected.isNotEmpty()) selected.clear() else Profiles.close() }
     LaunchedEffect(Unit) { PlayerConnection.pause(); while (videos.isEmpty()) { delay(200); waited++ } }
 
     /** Their follow button on the TikTok page: [click] presses it; answers its text ("Follow", "Following", "Friends"). */
@@ -189,7 +195,17 @@ private fun Profile(name: String) {
                     Box(Modifier.width(60.dp).height(2.dp).background(Color.White))
                 }
             }
-            items(videos, key = { it.key }) { s -> VideoTile(s) { watching = videos.indexOf(s) } }
+            items(videos, key = { it.key }) { s ->
+                val selecting = selected.isNotEmpty()
+                VideoTile(
+                    s,
+                    onLongClick = if (dev.ketsuyumi.loopbox.data.Settings.batchSelect) ({ if (s.key !in selected && selected.size < 50) selected.add(s.key) }) else null,
+                    selected = if (selecting) s.key in selected else null,
+                ) {
+                    if (selecting) { if (s.key in selected) selected.remove(s.key) else if (selected.size < 50) selected.add(s.key) }
+                    else watching = videos.indexOf(s)
+                }
+            }
             if (videos.isEmpty()) item(span = full) {
                 Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     if ((info?.videos ?: -1) == 0L) Text("No videos yet", color = Color.Gray)
@@ -213,6 +229,30 @@ private fun Profile(name: String) {
             }
         }
 
+        // Batch select: save the selected videos to the phone.
+        if (selected.isNotEmpty() && watching == null) Row(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().background(Surface1).padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(saving ?: "${selected.size} selected", color = Color.White, modifier = Modifier.weight(1f))
+            Text("Clear", color = Color.Gray, modifier = Modifier.clickable { selected.clear() }.padding(10.dp))
+            Text(
+                "Save ${selected.size}", color = Color.Black, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(CircleShape).background(Accent).clickable(enabled = saving == null) {
+                    val picked = videos.filter { it.key in selected }
+                    scope.launch {
+                        var ok = 0
+                        picked.forEachIndexed { i, v ->
+                            saving = "Saving ${i + 1} of ${picked.size}…"
+                            if (dev.ketsuyumi.loopbox.sync.Saver.saveVideo(context, v).isSuccess) ok++
+                        }
+                        saving = null
+                        selected.clear()
+                        android.widget.Toast.makeText(context, "Saved $ok of ${picked.size} to Movies/${dev.ketsuyumi.loopbox.data.Settings.videoFolder}", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }.padding(horizontal = 18.dp, vertical = 10.dp),
+            )
+        }
         // Their TikTok page in front, to scroll it yourself.
         if (showPage) Box(Modifier.fillMaxSize().zIndex(6f)) {
             Text(

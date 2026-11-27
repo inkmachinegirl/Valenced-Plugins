@@ -142,6 +142,9 @@ object Extractor {
             comments = count("commentCount", "comment_count"),
             saves = count("collectCount", "collect_count"),
             shares = count("shareCount", "share_count"),
+            views = count("playCount", "play_count"),
+            musicKey = music?.let { m -> m.optString("idStr").ifBlank { m.optString("id_str") }.ifBlank { m.optString("id") }.takeIf { it.isNotBlank() }?.let { "tt:$it" } },
+            musicTitle = music?.optString("title")?.ifBlank { null },
             flags = tiktokFlags(o, author),
         )
     }
@@ -211,6 +214,35 @@ object Extractor {
             true
         }
         return found
+    }
+
+    /** A TikTok comment. */
+    data class Comment(
+        val id: String, val user: String, val name: String, val avatar: String?, val text: String,
+        val time: Long, val likes: Long, val replies: Long,
+    )
+
+    /** Comments in a /api/comment/list answer: the comments, the next cursor, more or not, the total. */
+    data class Comments(val list: List<Comment>, val cursor: String?, val hasMore: Boolean, val total: Long)
+
+    fun tiktokComments(text: String): Comments? {
+        val root = parse(text) as? JSONObject ?: return null
+        val arr = root.optJSONArray("comments") ?: return null
+        val list = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull { c ->
+            val id = c.optString("cid").ifBlank { return@mapNotNull null }
+            val u = c.optJSONObject("user")
+            Comment(
+                id = id,
+                user = u?.optString("unique_id").orEmpty(),
+                name = u?.optString("nickname").orEmpty(),
+                avatar = u?.let { urlOf(it.opt("avatar_thumb")) },
+                text = c.optString("text"),
+                time = c.optLong("create_time") * 1000,
+                likes = c.optLong("digg_count"),
+                replies = c.optLong("reply_comment_total"),
+            )
+        }
+        return Comments(list, root.opt("cursor")?.toString(), root.optInt("has_more") == 1 || root.optBoolean("has_more"), root.optLong("total", -1))
     }
 
     /** TikTok videos in a page or response, e.g. a sound's page (videos that use it). */

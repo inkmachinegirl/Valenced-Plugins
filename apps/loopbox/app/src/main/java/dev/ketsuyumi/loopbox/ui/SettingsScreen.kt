@@ -24,6 +24,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterAlt
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Palette
@@ -67,6 +69,8 @@ private enum class Page(val title: String, val desc: String, val icon: ImageVect
     FEED("Feed", "Tabs, buttons, dates, gestures", Icons.Filled.ViewDay),
     FILTERS("Filters", "Ads and what to hide in For You", Icons.Filled.FilterAlt),
     PLAYBACK("Playback", "Looping, speed, quality, display", Icons.Filled.PlayCircle),
+    COMMENTS("Comments", "Names, times, long comments, blocked words", Icons.Filled.ChatBubble),
+    DOWNLOADS("Downloads", "Saving videos and sounds to the phone", Icons.Filled.Download),
     PRIVACY("Privacy", "Links, screenshots, tracking, history", Icons.Filled.Lock),
     LOG("Sync log", "What the last syncs did, to copy and send", Icons.Filled.Sync),
 }
@@ -113,6 +117,8 @@ fun SettingsScreen(onClose: () -> Unit) {
                 Page.FILTERS -> Filters()
                 Page.PLAYBACK -> Playback()
                 Page.PRIVACY -> Privacy()
+                Page.COMMENTS -> Comments()
+                Page.DOWNLOADS -> Downloads()
                 Page.LOG -> Log()
             }
         }
@@ -182,7 +188,9 @@ private fun Feed() {
         Toggle("Author", "The picture at the top; tap for their profile", Settings::showAuthor)
         Toggle("Like", null, Settings::showLike)
         Toggle("Save", "Saves a feed video to your library; on saved ones, playlists", Settings::showSave)
+        Toggle("Comments", null, Settings::showComments)
         Toggle("Share", null, Settings::showShare)
+        Toggle("More (⋯)", "Download, save sound, hide author, block audio, copy link", Settings::showMore)
         Toggle("Speed", "1x, 1.5x, 2x", Settings::showSpeed)
         Toggle("Spinning disc", null, Settings::showDisc)
     }
@@ -231,6 +239,39 @@ private fun Filters() {
         Toggle("Hide series episodes", null, Settings::hideSeries)
         Toggle("Hide subscriber-only posts", null, Settings::hideSubscriber)
         Toggle("Hide verified accounts", null, Settings::hideVerified)
+    }
+    Section("Views, likes and date") {
+        var open by remember { mutableStateOf(false) }
+        val parts = buildList {
+            if (Settings.minViews.isNotBlank() || Settings.maxViews.isNotBlank()) add("views")
+            if (Settings.minLikes.isNotBlank() || Settings.maxLikes.isNotBlank()) add("likes")
+            if (Settings.dateFrom > 0 || Settings.dateTo > 0) add("date")
+        }
+        Row(
+            Modifier.fillMaxWidth().clickable { open = true }.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("Filter by views, likes and date", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                Text("Hides For You and Following videos outside the limits", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+            }
+            Text(parts.joinToString(", ").ifEmpty { "Off" }, color = Color.Gray)
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.Gray)
+        }
+        if (open) LimitsSheet { open = false }
+    }
+    Section("Hidden") {
+        ListRow("Hidden authors", Settings::hiddenAuthors) { it.let { "@$it" } }
+        ListRow("Blocked audio", Settings::blockedAudio) { it.substringAfter('|') }
+        Hint("Added from a video's ⋯ menu. Tap an entry to restore it to your feed")
+    }
+    Section("Regions") {
+        Toggle("Filter by region", "Only videos posted from these countries", Settings::filterRegion)
+        if (Settings.filterRegion) OutlinedTextField(
+            value = Settings.regions, onValueChange = { Settings.regions = it.uppercase() },
+            placeholder = { Text("RO, US, JP") }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        )
     }
     Section("Hidden words") {
         OutlinedTextField(
@@ -320,6 +361,158 @@ private fun Log() {
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
             )
         }
+    }
+}
+
+@Composable
+private fun Comments() {
+    Section(null) {
+        Toggle("Show @username instead of name", "Displays the author's @username instead of the display name in comments", Settings::commentUsernames)
+        Toggle("Exact comment time", "The date and time on every comment instead of \"2d\"", Settings::exactCommentTime)
+        Choice("Long comments", null, Settings::longComments, listOf("expand" to "Expand all at once", "collapse" to "Collapse (… More)"))
+        Toggle("Copy comment text without nickname", "Hold a comment to copy it", Settings::copyWithoutName)
+        Toggle("Pause while comments are open", "The video stops while its comments are open and goes on when they close", Settings::pauseForComments)
+    }
+    Section("Hide") {
+        Text("Block keywords in comments", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+        OutlinedTextField(
+            value = Settings.blockCommentWords, onValueChange = { Settings.blockCommentWords = it },
+            placeholder = { Text("spoiler, first") }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Text("Block users in comments", color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 16.dp, top = 4.dp))
+        OutlinedTextField(
+            value = Settings.blockCommentUsers, onValueChange = { Settings.blockCommentUsers = it },
+            placeholder = { Text("@someone, nickname") }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        Hint("Hides comments containing these words, or from these accounts (@username or nickname), comma-separated")
+    }
+}
+
+@Composable
+private fun Downloads() {
+    Section(null) {
+        Choice(
+            "Download quality", "Downloads from a video's ⋯ menu", Settings::downloadQuality,
+            listOf("auto" to "As played (default)", "h264" to "H.264", "best" to "Best quality"),
+        )
+        Toggle("Include author and date in file names", null, Settings::namesWithAuthor)
+        Toggle("Batch select videos on profile", "Hold a video in a profile's grid to select; save up to 50 at once", Settings::batchSelect)
+    }
+    Section("Download folders") {
+        Text("Videos: Movies/", color = Color.White, modifier = Modifier.padding(start = 16.dp, top = 12.dp))
+        OutlinedTextField(
+            value = Settings.videoFolder, onValueChange = { Settings.videoFolder = it }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+        Text("Sounds: Music/", color = Color.White, modifier = Modifier.padding(start = 16.dp, top = 6.dp))
+        OutlinedTextField(
+            value = Settings.soundFolder, onValueChange = { Settings.soundFolder = it }, singleLine = true,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        )
+        Hint("Your gallery and music apps find them there")
+    }
+}
+
+/** A list setting (one entry per line), shown as a count; opens a list where a tap restores an entry. */
+@Composable
+private fun ListRow(title: String, setting: KMutableProperty0<String>, label: (String) -> String) {
+    val entries = setting.get().lines().filter { it.isNotBlank() }
+    var open by remember { mutableStateOf(false) }
+    Row(
+        Modifier.fillMaxWidth().clickable { open = true }.padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(title, color = Color.White, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text("${entries.size}", color = Color.Gray)
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.Gray)
+    }
+    if (open) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { open = false },
+        title = { Text(title) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                if (entries.isEmpty()) Text("Nothing here yet.", color = Color.Gray)
+                entries.forEach { e ->
+                    Row(
+                        Modifier.fillMaxWidth().clickable { setting.set(entries.filter { it != e }.joinToString("\n")) }.padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(label(e), modifier = Modifier.weight(1f))
+                        Text("Restore", color = Accent)
+                    }
+                }
+            }
+        },
+        confirmButton = { androidx.compose.material3.TextButton(onClick = { open = false }) { Text("Done") } },
+    )
+}
+
+/** Filter by views, likes and date: min / max fields and a date range, like the sheet in TikTok mods. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun LimitsSheet(onClose: () -> Unit) {
+    var minViews by remember { mutableStateOf(Settings.minViews) }
+    var maxViews by remember { mutableStateOf(Settings.maxViews) }
+    var minLikes by remember { mutableStateOf(Settings.minLikes) }
+    var maxLikes by remember { mutableStateOf(Settings.maxLikes) }
+    var from by remember { mutableStateOf(Settings.dateFrom) }
+    var to by remember { mutableStateOf(Settings.dateTo) }
+    var picking by remember { mutableStateOf<String?>(null) }
+    val day = java.text.SimpleDateFormat("d MMM yyyy", java.util.Locale.getDefault())
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = Surface1) {
+        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+            Text("Filter by views, likes and date", color = Color.White, style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.CenterHorizontally))
+            Text("Leave empty for no limit", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp, bottom = 12.dp))
+            @Composable
+            fun pair(title: String, a: String, b: String, setA: (String) -> Unit, setB: (String) -> Unit) {
+                Text(title, color = Color.White, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(a, { setA(it.filter(Char::isDigit)) }, label = { Text("Min") }, placeholder = { Text("No limit") }, singleLine = true, modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                    OutlinedTextField(b, { setB(it.filter(Char::isDigit)) }, label = { Text("Max") }, placeholder = { Text("No limit") }, singleLine = true, modifier = Modifier.weight(1f),
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+                }
+            }
+            pair("By views", minViews, maxViews, { minViews = it }, { maxViews = it })
+            pair("By likes", minLikes, maxLikes, { minLikes = it }, { maxLikes = it })
+            Text("By date", color = Color.White, modifier = Modifier.padding(top = 8.dp, bottom = 6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf("From" to from, "To" to to).forEach { (label, v) ->
+                    Column(
+                        Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).border(1.dp, Color(0xFF555555), RoundedCornerShape(8.dp))
+                            .clickable { picking = label }.padding(12.dp),
+                    ) {
+                        Text(label, color = Color.Gray, style = MaterialTheme.typography.labelSmall)
+                        Text(if (v > 0) day.format(java.util.Date(v)) else if (label == "From") "Any" else "Today", color = Color.White)
+                    }
+                }
+            }
+            if (from > 0 || to > 0) Text("Clear dates", color = Accent, modifier = Modifier.padding(top = 8.dp).clickable { from = 0; to = 0 })
+            Spacer(Modifier.height(20.dp))
+            androidx.compose.material3.Button(
+                onClick = {
+                    Settings.minViews = minViews; Settings.maxViews = maxViews
+                    Settings.minLikes = minLikes; Settings.maxLikes = maxLikes
+                    Settings.dateFrom = from; Settings.dateTo = to
+                    onClose()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Accent),
+            ) { Text("Save", color = Color.White) }
+        }
+    }
+    picking?.let { which ->
+        val state = androidx.compose.material3.rememberDatePickerState(initialSelectedDateMillis = (if (which == "From") from else to).takeIf { it > 0 })
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { picking = null },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    val v = state.selectedDateMillis ?: 0
+                    if (which == "From") from = v else to = v
+                    picking = null
+                }) { Text("OK") }
+            },
+        ) { androidx.compose.material3.DatePicker(state) }
     }
 }
 

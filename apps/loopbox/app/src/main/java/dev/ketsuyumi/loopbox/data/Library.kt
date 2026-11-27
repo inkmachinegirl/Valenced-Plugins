@@ -38,6 +38,10 @@ data class Sound(
     val comments: Long = -1,
     val saves: Long = -1,
     val shares: Long = -1,
+    val views: Long = -1,
+    /** Video posts: the sound it uses (key like "tt:123", and its title), for Blocked audio. */
+    val musicKey: String? = null,
+    val musicTitle: String? = null,
     /** Video posts: what kind it is, for the feed filters (ad, ai, shop, paid, series, subscriber, verified, photo, live). Not saved. */
     val flags: Set<String> = emptySet(),
 )
@@ -192,7 +196,8 @@ object Library {
                     if (x.postedAt > 0) put("postedAt", x.postedAt)
                     if (x.region != null) put("region", x.region)
                     if (x.user != null) put("user", x.user)
-                    if (x.likes >= 0) { put("likes", x.likes); put("comments", x.comments); put("saves", x.saves); put("shares", x.shares) }
+                    if (x.likes >= 0) { put("likes", x.likes); put("comments", x.comments); put("saves", x.saves); put("shares", x.shares); put("views", x.views) }
+                    if (x.musicKey != null) { put("musicKey", x.musicKey); put("musicTitle", x.musicTitle ?: "") }
                 })
             }
         })
@@ -234,7 +239,8 @@ object Library {
                     region = o.optStringOrNull("region"),
                     user = o.optStringOrNull("user"),
                     likes = o.optLong("likes", -1), comments = o.optLong("comments", -1),
-                    saves = o.optLong("saves", -1), shares = o.optLong("shares", -1),
+                    saves = o.optLong("saves", -1), shares = o.optLong("shares", -1), views = o.optLong("views", -1),
+                    musicKey = o.optStringOrNull("musicKey"), musicTitle = o.optStringOrNull("musicTitle"),
                 )
             }
         } ?: emptyList()
