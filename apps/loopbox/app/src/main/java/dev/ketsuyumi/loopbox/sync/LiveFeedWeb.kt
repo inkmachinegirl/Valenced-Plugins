@@ -53,10 +53,16 @@ private const val FEED_JS = """
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (String) -> Unit = {}, onVideos: (List<Sound>) -> Unit) {
+fun LiveFeedWeb(
+    url: String, more: Boolean, modifier: Modifier, onStatus: (String) -> Unit = {},
+    /** A profile page: whose ([url] is tiktok.com/@name); its own posts are taken, and [onProfile] gets its details. */
+    profileOf: String? = null, onProfile: (Extractor.Profile) -> Unit = {}, onWeb: (WebView?) -> Unit = {},
+    onVideos: (List<Sound>) -> Unit,
+) {
     val main = remember { Handler(Looper.getMainLooper()) }
     val deliver by rememberUpdatedState(onVideos)
     val report by rememberUpdatedState(onStatus)
+    val profileTo by rememberUpdatedState(onProfile)
     var page by remember { mutableStateOf("") }
     var responses by remember { mutableStateOf(0) }
     var videos by remember { mutableStateOf(0) }
@@ -65,6 +71,8 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (Strin
             " · $responses response${if (responses == 1) "" else "s"} · $videos video${if (videos == 1) "" else "s"}",
     )
     var web by remember { mutableStateOf<WebView?>(null) }
+    // The feed's own request (For You: /api/recommend/item_list), to ask for more batches with.
+    var feedRequest by remember { mutableStateOf<String?>(null) }
     val bridge = remember {
         object {
             @JavascriptInterface
@@ -72,8 +80,13 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (Strin
                 val f = requestPath(from)
                 main.post { responses++; status() }
                 // The feed comes from the site's requests, or is built into the page ("embedded").
-                if (!(from.startsWith("http") || f == "embedded") || "collect" in f || "favorite" in f || "/post/" in f) return true
+                // A profile: its details, and its own posts (/api/post/…), not suggestions.
+                if (profileOf != null) Extractor.tiktokProfile(text, profileOf)?.let { p -> main.post { profileTo(p) } }
+                if (!(from.startsWith("http") || f == "embedded") || "collect" in f || "favorite" in f) return true
+                if (profileOf == null && "/post/" in f) return true
+                if (profileOf == null && from.startsWith("http") && "item_list" in f) main.post { feedRequest = from }
                 val found = Extractor.extractAll(Source.TIKTOK, text, page).videos
+                    .filter { profileOf == null || it.user.equals(profileOf, ignoreCase = true) }
                 if (found.isNotEmpty()) main.post { videos += found.size; status(); deliver(found) }
                 return true
             }
@@ -86,7 +99,22 @@ fun LiveFeedWeb(url: String, more: Boolean, modifier: Modifier, onStatus: (Strin
         }
     }
     LaunchedEffect(more, web) { web?.evaluateJavascript("window.__loopboxMore && window.__loopboxMore($more)", null) }
-    DisposableEffect(url) { onDispose { web?.destroy(); web = null } }
+    // Near the end: ask for the next batch the way the page does (its fetch signs the request; each
+    // ask brings new videos), every few seconds until there are enough again. Scrolling stays as a backup.
+    LaunchedEffect(more, web, feedRequest) {
+        val w = web ?: return@LaunchedEffect
+        val req = feedRequest ?: return@LaunchedEffect
+        while (more) {
+            w.evaluateJavascript(
+                "(function(u){ try { var x = new URL(u); ['X-Bogus','X-Gnarly','_signature'].forEach(function(k){ x.searchParams.delete(k); });" +
+                    " window.fetch(x.toString(), { credentials: 'include' }); } catch(e){} })(" + org.json.JSONObject.quote(req) + ")",
+                null,
+            )
+            kotlinx.coroutines.delay(4000)
+        }
+    }
+    LaunchedEffect(web) { onWeb(web) }
+    DisposableEffect(url) { onDispose { onWeb(null); web?.destroy(); web = null } }
     AndroidView(
         modifier = modifier,
         factory = { ctx ->

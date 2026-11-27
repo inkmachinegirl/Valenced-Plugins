@@ -47,6 +47,8 @@ import dev.ketsuyumi.loopbox.sync.SyncService
 import dev.ketsuyumi.loopbox.ui.Accent
 import dev.ketsuyumi.loopbox.ui.FeedScreen
 import dev.ketsuyumi.loopbox.ui.FeedNav
+import dev.ketsuyumi.loopbox.ui.Profiles
+import dev.ketsuyumi.loopbox.ui.ProfileScreen
 import dev.ketsuyumi.loopbox.ui.Viewer
 import dev.ketsuyumi.loopbox.ui.ViewerScreen
 import dev.ketsuyumi.loopbox.ui.SettingsScreen
@@ -163,6 +165,11 @@ class MainActivity : ComponentActivity() {
                             }
                             if (overNav) Box(Modifier.align(Alignment.BottomCenter)) { nav(Modifier) }
                         }
+                    }
+                    // A TikTok profile, over everything (the feed under it pauses).
+                    if (Profiles.user != null && sync == null && !settings) {
+                        BackHandler { Profiles.close() }
+                        Box(Modifier.fillMaxSize()) { ProfileScreen() }
                     }
                 }
             }

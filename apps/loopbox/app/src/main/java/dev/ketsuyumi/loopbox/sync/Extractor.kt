@@ -178,6 +178,38 @@ object Extractor {
         return chosen?.let { urlOf(it.opt("PlayAddr")) }
     }
 
+    /** A TikTok profile's details. */
+    data class Profile(
+        val user: String, val name: String, val avatar: String?, val bio: String, val verified: Boolean,
+        val following: Long, val followers: Long, val likes: Long, val videos: Long,
+    )
+
+    /** [user]'s profile in a page or response: {user: {uniqueId, nickname, avatarLarger, signature}, stats: {...}}. */
+    fun tiktokProfile(text: String, user: String): Profile? {
+        val root = parse(text) ?: return null
+        var found: Profile? = null
+        walk(root, 0) { o ->
+            if (found != null) return@walk false
+            val u = o.optJSONObject("user")
+            val st = o.optJSONObject("statsV2") ?: o.optJSONObject("stats")
+            if (u != null && st != null && u.optString("uniqueId").equals(user, ignoreCase = true) && st.has("followerCount")) {
+                fun n(vararg k: String) = k.firstNotNullOfOrNull { st.opt(it)?.toString()?.toLongOrNull() } ?: -1L
+                found = Profile(
+                    user = u.optString("uniqueId"),
+                    name = u.optString("nickname").ifBlank { u.optString("uniqueId") },
+                    avatar = urlOf(u.opt("avatarLarger")) ?: urlOf(u.opt("avatarMedium")) ?: urlOf(u.opt("avatarThumb")),
+                    bio = u.optString("signature"),
+                    verified = u.optBoolean("verified"),
+                    following = n("followingCount"), followers = n("followerCount"),
+                    likes = n("heartCount", "heart"), videos = n("videoCount"),
+                )
+                return@walk false
+            }
+            true
+        }
+        return found
+    }
+
     /** TikTok videos in a page or response, e.g. a sound's page (videos that use it). */
     fun tiktokVideos(text: String): List<Sound> = extractAll(Source.TIKTOK, text, null).videos
 

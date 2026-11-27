@@ -156,7 +156,7 @@ fun ViewerScreen() {
 }
 
 /** Burn-in protection: how much to show the feed's buttons and text, and how far to shift them. */
-private data class Look(val ui: Float, val dx: Dp, val dy: Dp)
+internal data class Look(val ui: Float, val dx: Dp, val dy: Dp)
 
 /**
  * The feed, like TikTok: For You and Following are your real TikTok feeds, as videos with their
@@ -219,6 +219,7 @@ private fun videoPlayer(context: android.content.Context): ExoPlayer {
 private object LiveFeeds {
     val lists = HashMap<String, androidx.compose.runtime.snapshots.SnapshotStateList<Sound>>()
     fun of(url: String) = lists.getOrPut(url) { mutableStateListOf() }
+    val position = HashMap<String, Int>()
     var speed by mutableFloatStateOf(if (Settings.rememberSpeed) Settings.speed else 1f)
 }
 
@@ -242,7 +243,7 @@ private fun passes(s: Sound): Boolean {
     return true
 }
 
-/** Video players kept for a live feed: the one on screen, the next and the previous (loaded ahead). */
+/** Video players kept for a video pager: the one on screen, the next and the previous (loaded ahead). */
 private const val SLOTS = 3
 
 /**
@@ -250,107 +251,18 @@ private const val SLOTS = 3
  * page is open behind it (out of sight, its videos paused) and loads the feed; its videos are
  * picked up as they arrive (minus what Settings › Filters hides), and it's moved on for more as
  * you get near the end. "Show TikTok page" brings it to the front, e.g. to log in or close a pop-up.
- *
- * Three players take turns (page % 3): the video on screen plays while the next and previous
- * ones load and show their first frame, so swiping lands on a video that's ready.
  */
-@OptIn(UnstableApi::class)
 @Composable
 private fun LiveFeed(url: String, look: Look) {
-    val context = LocalContext.current
     val items = remember(url) { LiveFeeds.of(url) }
-    val pool = remember { List(SLOTS) { videoPlayer(context).apply { repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF } } }
-    val slotKey = remember { mutableStateListOf<String?>(*arrayOfNulls(SLOTS)) }   // whose video each player has
-    val shown = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() } // videos with a first frame
-    val failed = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() } // key -> why
-    var playing by remember { mutableStateOf(true) }
-    var progress by remember { mutableFloatStateOf(0f) }
     var waited by remember { mutableIntStateOf(0) }
     var status by remember { mutableStateOf("Opening TikTok…") }
     var showPage by remember { mutableStateOf(false) }
     var hidden by remember { mutableIntStateOf(0) }
-    val retried = remember { HashSet<String>() }
-    val scope = androidx.compose.runtime.rememberCoroutineScope()
-    val pager = rememberPagerState { items.size }
-    val currentSlot = pager.settledPage % SLOTS
-
-    fun load(slot: Int, s: Sound, why: String) {
-        slotKey[slot] = s.key
-        val p = pool[slot]
-        SyncLog.add("video $why: " + (s.videoUrl?.let { android.net.Uri.parse(it).host } ?: "no address") + " · @" + (s.user ?: s.artist))
-        p.setMediaItem(MediaItem.fromUri(s.videoUrl ?: return))
-        p.prepare()
-        p.playWhenReady = false
-    }
-
-    DisposableEffect(pool) {
-        PlayerConnection.pause() // one sound at a time
-        val listeners = pool.mapIndexed { i, player ->
-            object : Player.Listener {
-                override fun onRenderedFirstFrame() {
-                    val k = slotKey[i] ?: return
-                    if (shown[k] != true) SyncLog.add("video showing" + if (i == pager.settledPage % SLOTS) "" else " (ready ahead)")
-                    shown[k] = true
-                }
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    if (i == pager.settledPage % SLOTS) playing = isPlaying || player.playWhenReady
-                }
-                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                    val s = items.firstOrNull { it.key == slotKey[i] } ?: return
-                    val why = VideoResolver.why(error)
-                    SyncLog.add("video didn't play ($why): ${s.videoUrl?.let { android.net.Uri.parse(it).host }} · ${s.pageUrl}")
-                    // Once: a fresh address from the video's page. Then: at least its sound.
-                    scope.launch {
-                        val fresh = if (retried.add(s.key)) VideoResolver.refresh(s) else null
-                        if (slotKey[i] != s.key) return@launch
-                        if (fresh != null) {
-                            SyncLog.add("retrying with a fresh address (${android.net.Uri.parse(fresh).host})")
-                            player.setMediaItem(MediaItem.fromUri(fresh))
-                        } else {
-                            failed[s.key] = why
-                            if (s.remoteUrl == s.videoUrl) return@launch
-                            player.setMediaItem(MediaItem.fromUri(s.remoteUrl))
-                        }
-                        player.prepare()
-                        player.playWhenReady = i == pager.settledPage % SLOTS && playing
-                    }
-                }
-            }.also { player.addListener(it) }
-        }
-        onDispose { pool.forEachIndexed { i, p -> p.removeListener(listeners[i]); p.release() } }
-    }
-    LaunchedEffect(Settings.loop) { pool.forEach { it.repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF } }
-    LaunchedEffect(LiveFeeds.speed) { pool.forEach { it.setPlaybackSpeed(LiveFeeds.speed) } }
-    LaunchedEffect(pool) {
-        while (true) {
-            delay(200)
-            val player = pool[pager.settledPage % SLOTS]
-            val d = player.duration
-            progress = if (d > 0) (player.currentPosition.toFloat() / d).coerceIn(0f, 1f) else 0f
-            if (player.playbackState == Player.STATE_ENDED && !Settings.loop && pager.currentPage < items.size - 1) pager.animateScrollToPage(pager.currentPage + 1)
-            if (items.isEmpty()) waited++
-        }
-    }
-    // On each page: the video on screen plays (from the start); the next and previous load ahead.
-    LaunchedEffect(pager, items.size) {
-        snapshotFlow { pager.settledPage }.collect { page ->
-            if (items.isEmpty()) return@collect
-            for ((p, why) in listOf(page to "loading", page + 1 to "loading ahead", page - 1 to "loading behind")) {
-                val s = items.getOrNull(p) ?: continue
-                if (slotKey[p % SLOTS] != s.key) load(p % SLOTS, s, why)
-            }
-            PlayerConnection.pause()
-            pool.forEachIndexed { i, pl ->
-                if (i == page % SLOTS) { pl.playWhenReady = true; playing = true }
-                else { pl.playWhenReady = false; pl.seekTo(0) }
-            }
-        }
-    }
-    LaunchedEffect(pager.settledPage, slotKey[currentSlot]) {
-        val k = slotKey[currentSlot] ?: return@LaunchedEffect
-        delay(12_000)
-        if (slotKey[currentSlot] == k && shown[k] != true && k !in failed) SyncLog.add("video still not showing after 12 s: " + stateOf(pool[currentSlot]))
-    }
+    // Where you were in this feed, kept while the app runs.
+    val pager = rememberPagerState(initialPage = LiveFeeds.position[url] ?: 0) { items.size }
+    LaunchedEffect(pager) { snapshotFlow { pager.settledPage }.collect { LiveFeeds.position[url] = it } }
+    LaunchedEffect(Unit) { while (items.isEmpty()) { delay(200); waited++ } }
 
     // The TikTok page, behind everything (in front with "Show TikTok page"); moved on when fewer
     // than 5 videos are left.
@@ -360,7 +272,9 @@ private fun LiveFeed(url: String, look: Look) {
         onStatus = { status = it },
     ) { found ->
         val have = items.map { it.key }.toHashSet()
-        val fresh = found.filter { it.key !in have }
+        // Your own posts aren't feed (they turned up once the feed ran dry).
+        val me = Library.state.value.syncPages[Source.TIKTOK]?.let { dev.ketsuyumi.loopbox.sync.requestPath(it).removePrefix("/@").substringBefore('/') }
+        val fresh = found.filter { it.key !in have && (me == null || !it.user.equals(me, ignoreCase = true)) }
         val ok = fresh.filter(::passes)
         hidden += fresh.size - ok.size
         items.addAll(ok)
@@ -399,6 +313,112 @@ private fun LiveFeed(url: String, look: Look) {
         }
         return
     }
+    // Paused while a profile is open over it.
+    VideoPager(items, look, pager, active = Profiles.user == null)
+}
+
+/**
+ * Videos played full screen with their own sound, swipe up for the next (a TikTok feed, or a
+ * profile's videos). Three players take turns (page % 3): the video on screen plays while the
+ * next and previous ones load and show their first frame, so swiping lands on a video that's
+ * ready. [active] off pauses it (e.g. a profile opened over it).
+ */
+@OptIn(UnstableApi::class)
+@Composable
+internal fun VideoPager(items: List<Sound>, look: Look, pager: androidx.compose.foundation.pager.PagerState, active: Boolean) {
+    val context = LocalContext.current
+    val pool = remember { List(SLOTS) { videoPlayer(context).apply { repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF } } }
+    val slotKey = remember { mutableStateListOf<String?>(*arrayOfNulls(SLOTS)) }   // whose video each player has
+    val shown = remember { androidx.compose.runtime.mutableStateMapOf<String, Boolean>() } // videos with a first frame
+    val failed = remember { androidx.compose.runtime.mutableStateMapOf<String, String>() } // key -> why
+    var playing by remember { mutableStateOf(true) }
+    var progress by remember { mutableFloatStateOf(0f) }
+    val retried = remember { HashSet<String>() }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val currentSlot = pager.settledPage % SLOTS
+    val list by androidx.compose.runtime.rememberUpdatedState(items)
+
+    fun load(slot: Int, s: Sound, why: String) {
+        slotKey[slot] = s.key
+        val p = pool[slot]
+        SyncLog.add("video $why: " + (s.videoUrl?.let { android.net.Uri.parse(it).host } ?: "no address") + " · @" + (s.user ?: s.artist))
+        p.setMediaItem(MediaItem.fromUri(s.videoUrl ?: return))
+        p.prepare()
+        p.playWhenReady = false
+    }
+
+    DisposableEffect(pool) {
+        PlayerConnection.pause() // one sound at a time
+        val listeners = pool.mapIndexed { i, player ->
+            object : Player.Listener {
+                override fun onRenderedFirstFrame() {
+                    val k = slotKey[i] ?: return
+                    if (shown[k] != true) SyncLog.add("video showing" + if (i == pager.settledPage % SLOTS) "" else " (ready ahead)")
+                    shown[k] = true
+                }
+                override fun onIsPlayingChanged(isPlaying: Boolean) {
+                    if (i == pager.settledPage % SLOTS) playing = isPlaying || player.playWhenReady
+                }
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    val s = list.firstOrNull { it.key == slotKey[i] } ?: return
+                    val why = VideoResolver.why(error)
+                    SyncLog.add("video didn't play ($why): ${s.videoUrl?.let { android.net.Uri.parse(it).host }} · ${s.pageUrl}")
+                    // Once: a fresh address from the video's page. Then: at least its sound.
+                    scope.launch {
+                        val fresh = if (retried.add(s.key)) VideoResolver.refresh(s) else null
+                        if (slotKey[i] != s.key) return@launch
+                        if (fresh != null) {
+                            SyncLog.add("retrying with a fresh address (${android.net.Uri.parse(fresh).host})")
+                            player.setMediaItem(MediaItem.fromUri(fresh))
+                        } else {
+                            failed[s.key] = why
+                            if (s.remoteUrl == s.videoUrl) return@launch
+                            player.setMediaItem(MediaItem.fromUri(s.remoteUrl))
+                        }
+                        player.prepare()
+                        player.playWhenReady = i == pager.settledPage % SLOTS && playing && active
+                    }
+                }
+            }.also { player.addListener(it) }
+        }
+        onDispose { pool.forEachIndexed { i, p -> p.removeListener(listeners[i]); p.release() } }
+    }
+    LaunchedEffect(Settings.loop) { pool.forEach { it.repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF } }
+    LaunchedEffect(LiveFeeds.speed) { pool.forEach { it.setPlaybackSpeed(LiveFeeds.speed) } }
+    LaunchedEffect(active) {
+        if (!active) pool.forEach { it.playWhenReady = false }
+        else if (playing) { PlayerConnection.pause(); pool[pager.settledPage % SLOTS].playWhenReady = true }
+    }
+    LaunchedEffect(pool) {
+        while (true) {
+            delay(200)
+            val player = pool[pager.settledPage % SLOTS]
+            val d = player.duration
+            progress = if (d > 0) (player.currentPosition.toFloat() / d).coerceIn(0f, 1f) else 0f
+            if (active && player.playbackState == Player.STATE_ENDED && !Settings.loop && pager.currentPage < list.size - 1) pager.animateScrollToPage(pager.currentPage + 1)
+        }
+    }
+    // On each page: the video on screen plays (from the start); the next and previous load ahead.
+    LaunchedEffect(pager, items.size) {
+        snapshotFlow { pager.settledPage }.collect { page ->
+            if (list.isEmpty()) return@collect
+            for ((p, why) in listOf(page to "loading", page + 1 to "loading ahead", page - 1 to "loading behind")) {
+                val s = list.getOrNull(p) ?: continue
+                if (slotKey[p % SLOTS] != s.key) load(p % SLOTS, s, why)
+            }
+            if (active) PlayerConnection.pause()
+            pool.forEachIndexed { i, pl ->
+                if (i == page % SLOTS) { pl.playWhenReady = active; playing = true }
+                else { pl.playWhenReady = false; pl.seekTo(0) }
+            }
+        }
+    }
+    LaunchedEffect(pager.settledPage, slotKey[currentSlot]) {
+        val k = slotKey[currentSlot] ?: return@LaunchedEffect
+        delay(12_000)
+        if (slotKey[currentSlot] == k && shown[k] != true && k !in failed) SyncLog.add("video still not showing after 12 s: " + stateOf(pool[currentSlot]))
+    }
+
     VerticalPager(state = pager, modifier = Modifier.fillMaxSize(), beyondViewportPageCount = 1, key = { items[it].key }) { page ->
         val s = items[page]
         val current = page == pager.settledPage
@@ -537,7 +557,10 @@ private fun FeedPage(
     val liked = inLibrary?.liked == true
     val name = s.artist.ifBlank { if (s.source == Source.TIKTOK) "tiktok" else "instagram" }
     val profile = s.user?.let { if (s.source == Source.TIKTOK) "https://www.tiktok.com/@$it" else "https://www.instagram.com/$it/" }
-    val openProfile = { (profile ?: s.pageUrl)?.let { openLink(context, it) } }
+    val openProfile = {
+        if (s.source == Source.TIKTOK && s.user != null) Profiles.open(s.user)
+        else (profile ?: s.pageUrl)?.let { openLink(context, it) }
+    }
     var clear by remember { mutableStateOf(false) }          // long press › Clear display
     var held by remember { mutableStateOf(false) }           // long press › 2x while held
     var heart by remember { mutableIntStateOf(0) }           // double tap animation
