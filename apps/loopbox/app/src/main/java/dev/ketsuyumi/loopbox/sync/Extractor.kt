@@ -182,6 +182,8 @@ object Extractor {
     data class Profile(
         val user: String, val name: String, val avatar: String?, val bio: String, val verified: Boolean,
         val following: Long, val followers: Long, val likes: Long, val videos: Long,
+        /** TikTok's internal id for the account, used to ask for its videos. */
+        val secUid: String? = null,
     )
 
     /** [user]'s profile in a page or response: {user: {uniqueId, nickname, avatarLarger, signature}, stats: {...}}. */
@@ -202,6 +204,7 @@ object Extractor {
                     verified = u.optBoolean("verified"),
                     following = n("followingCount"), followers = n("followerCount"),
                     likes = n("heartCount", "heart"), videos = n("videoCount"),
+                    secUid = u.optString("secUid").ifBlank { null },
                 )
                 return@walk false
             }

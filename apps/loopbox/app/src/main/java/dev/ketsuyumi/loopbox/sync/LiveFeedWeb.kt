@@ -73,6 +73,13 @@ fun LiveFeedWeb(
     var web by remember { mutableStateOf<WebView?>(null) }
     // The feed's own request (For You: /api/recommend/item_list), to ask for more batches with.
     var feedRequest by remember { mutableStateOf<String?>(null) }
+    // A profile: its videos are asked for directly (/api/post/item_list), 30 at a time, with the
+    // settings the page's own requests use, when the page doesn't load them itself.
+    var base by remember { mutableStateOf<String?>(null) }      // a TikTok API request's query, to reuse
+    var secUid by remember { mutableStateOf<String?>(null) }
+    var postCursor by remember { mutableStateOf("0") }
+    var postsDone by remember { mutableStateOf(false) }
+    var asked by remember { mutableStateOf<String?>(null) }
     val bridge = remember {
         object {
             @JavascriptInterface
@@ -81,7 +88,23 @@ fun LiveFeedWeb(
                 main.post { responses++; status() }
                 // The feed comes from the site's requests, or is built into the page ("embedded").
                 // A profile: its details, and its own posts (/api/post/…), not suggestions.
-                if (profileOf != null) Extractor.tiktokProfile(text, profileOf)?.let { p -> main.post { profileTo(p) } }
+                if (profileOf != null) {
+                    Extractor.tiktokProfile(text, profileOf)?.let { p -> main.post { profileTo(p); if (p.secUid != null) secUid = p.secUid } }
+                    if (from.startsWith("https://www.tiktok.com/api/")) {
+                        val q = android.net.Uri.parse(from)
+                        val kept = q.queryParameterNames.filter { it !in setOf("X-Bogus", "X-Gnarly", "_signature", "cursor", "count", "secUid", "id", "itemID", "coverFormat") }
+                        val query = kept.joinToString("&") { k -> k + "=" + android.net.Uri.encode(q.getQueryParameter(k).orEmpty()) }
+                        main.post { if (base == null) base = query }
+                    }
+                    if ("/post/item_list" in f) runCatching {
+                        val j = org.json.JSONObject(text)
+                        val has = j.optBoolean("hasMore") || j.optBoolean("has_more")
+                        val c = j.opt("cursor")?.toString()
+                        val n = j.optJSONArray("itemList")?.length() ?: 0
+                        SyncLog.add("profile @$profileOf: $n videos, hasMore=$has")
+                        main.post { if (c != null) postCursor = c; postsDone = !has }
+                    }
+                }
                 if (!(from.startsWith("http") || f == "embedded") || "collect" in f || "favorite" in f) return true
                 if (profileOf == null && "/post/" in f) return true
                 if (profileOf == null && from.startsWith("http") && "item_list" in f) main.post { feedRequest = from }
@@ -99,6 +122,19 @@ fun LiveFeedWeb(
         }
     }
     LaunchedEffect(more, web) { web?.evaluateJavascript("window.__loopboxMore && window.__loopboxMore($more)", null) }
+    LaunchedEffect(profileOf, more, web, base, secUid, postCursor, postsDone) {
+        val w = web ?: return@LaunchedEffect
+        val b = base ?: return@LaunchedEffect
+        val id = secUid ?: return@LaunchedEffect
+        if (profileOf == null || !more || postsDone || asked == postCursor) return@LaunchedEffect
+        // The first page: give the page a moment to load it itself.
+        kotlinx.coroutines.delay(if (postCursor == "0") 3000 else 600)
+        if (asked == postCursor) return@LaunchedEffect
+        asked = postCursor
+        val url = "https://www.tiktok.com/api/post/item_list/?$b&secUid=${android.net.Uri.encode(id)}&count=30&cursor=$postCursor&coverFormat=2"
+        SyncLog.add("profile @$profileOf: asking for videos from $postCursor")
+        w.evaluateJavascript("window.fetch(" + org.json.JSONObject.quote(url) + ", { credentials: 'include' })", null)
+    }
     // Near the end: ask for the next batch the way the page does (its fetch signs the request; each
     // ask brings new videos), every few seconds until there are enough again. Scrolling stays as a backup.
     LaunchedEffect(more, web, feedRequest) {
