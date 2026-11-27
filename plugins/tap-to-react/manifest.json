@@ -1,0 +1,20 @@
+{
+	"format": 1,
+	"id": "dev.ketsuyumi.tap-to-react",
+	"name": "Tap to React",
+	"description": "Tap a message once to react with an emoji (❤️ by default), like a quick like. Tap again to take it off. Double tap and long press still work as before.",
+	"author": "Satou (https://github.com/inkmachinegirl \"GitHub\")",
+	"icon": "HeartIcon",
+	"version": "1.0.0",
+	"dependencies": {
+		"valenced.api": {
+			"version": ">=1 <2"
+		},
+		"discord": {
+			"version": "*"
+		}
+	},
+	"dist": {
+		"script": "index.js"
+	}
+}

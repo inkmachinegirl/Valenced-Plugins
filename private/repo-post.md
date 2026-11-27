@@ -44,6 +44,7 @@ Add this in Settings > Plugins > Advanced > Repository URL:
 • **Sort Friends** `1.0.0`: your friends list by the date you became friends, newest or oldest first
 • **Spectators** `1.0.2`: see who's watching a stream, with join/leave notices and a notification with the count while you stream
 • **Stream Tools** `1.0.2`: auto-watch streams, a volume and switch bar, and a clean view
+• **Tap to React** `1.0.0`: tap a message once to react with an emoji (❤️ by default), tap again to take it off; double tap still works
 • **Unfollow Category** `1.0.0`: untick every channel in a category at once in Channels & Roles
 • **Watch Together Ad Block** `1.0.0`: no YouTube ads in Discord's Watch Together
 
