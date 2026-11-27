@@ -270,7 +270,10 @@ private fun LiveFeed(url: String, look: Look) {
     DisposableEffect(player) {
         PlayerConnection.pause() // one sound at a time
         val l = object : Player.Listener {
-            override fun onRenderedFirstFrame() { shownKey = loadedKey; failed = null }
+            override fun onRenderedFirstFrame() {
+                if (shownKey != loadedKey) SyncLog.add("video showing")
+                shownKey = loadedKey; failed = null
+            }
             /** The video can't be played: at least play its sound (with the spinning record). */
             fun soundInstead(s: Sound, why: String) {
                 failed = s.key to why
@@ -298,6 +301,11 @@ private fun LiveFeed(url: String, look: Look) {
     }
     LaunchedEffect(Settings.loop) { player.repeatMode = if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF }
     LaunchedEffect(LiveFeeds.speed) { player.setPlaybackSpeed(LiveFeeds.speed) }
+    LaunchedEffect(loadedKey) {
+        val k = loadedKey ?: return@LaunchedEffect
+        delay(12_000)
+        if (loadedKey == k && shownKey != k && failed == null) SyncLog.add("video still not showing after 12 s: " + stateOf(player))
+    }
     LaunchedEffect(player) {
         while (true) {
             delay(200)
@@ -312,6 +320,7 @@ private fun LiveFeed(url: String, look: Look) {
             val s = items.getOrNull(page) ?: return@collect
             if (loadedKey == s.key) return@collect
             loadedKey = s.key; shownKey = null; failed = null
+            SyncLog.add("video loading: " + (s.videoUrl?.let { android.net.Uri.parse(it).host } ?: "no address") + " · @" + (s.user ?: s.artist))
             PlayerConnection.pause()
             player.setMediaItem(MediaItem.fromUri(s.videoUrl ?: return@collect))
             player.prepare()
@@ -370,7 +379,7 @@ private fun LiveFeed(url: String, look: Look) {
         val s = items[page]
         val current = page == pager.settledPage
         FeedPage(
-            s, if (shownKey == s.key) player else null, look, live = true,
+            s, if (loadedKey == s.key) player else null, look, live = true, ready = shownKey == s.key,
             problem = failed?.takeIf { it.first == s.key }?.second?.let { "Video couldn't load ($it), playing its sound" },
             current = current, playing = current && playing, progress = if (current) progress else 0f,
             onToggle = { if (player.playWhenReady) player.pause() else player.play(); playing = player.playWhenReady },
@@ -401,18 +410,22 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
     val video = remember { videoPlayer(context).apply { volume = 0f; repeatMode = Player.REPEAT_MODE_ONE } }
     var videoKey by remember { mutableStateOf<String?>(null) }   // whose video is loaded
     var shownKey by remember { mutableStateOf<String?>(null) }   // whose video has a first frame
+    var attachedKey by remember { mutableStateOf<String?>(null) } // whose video address is in the player
     val retried = remember { HashSet<String>() }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val currentFeed by androidx.compose.runtime.rememberUpdatedState(feed)
     DisposableEffect(video) {
         val l = object : Player.Listener {
-            override fun onRenderedFirstFrame() { shownKey = videoKey }
+            override fun onRenderedFirstFrame() {
+                if (shownKey != videoKey) SyncLog.add("video showing")
+                shownKey = videoKey
+            }
             override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
                 val s = currentFeed.firstOrNull { it.key == videoKey } ?: return
                 SyncLog.add("video didn't play (${VideoResolver.why(error)}): ${s.pageUrl}")
                 if (retried.add(s.key)) scope.launch {
                     val url = VideoResolver.refresh(s)
-                    if (url != null && videoKey == s.key) { video.setMediaItem(MediaItem.fromUri(url)); video.prepare(); video.playWhenReady = PlayerConnection.isPlaying }
+                    if (url != null && videoKey == s.key) { video.setMediaItem(MediaItem.fromUri(url)); video.prepare(); video.playWhenReady = PlayerConnection.isPlaying; attachedKey = s.key }
                 }
             }
         }
@@ -447,9 +460,11 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
             if (PlayerConnection.currentKey != s.key) PlayerConnection.play(feed, s)
             PlayerConnection.setLoop(if (Settings.loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_ALL)
             if (videoKey != s.key) {
-                video.stop(); video.clearMediaItems(); videoKey = s.key; shownKey = null
+                video.stop(); video.clearMediaItems(); videoKey = s.key; shownKey = null; attachedKey = null
                 val url = if (Settings.feedVideos || s.video) VideoResolver.videoFor(s) else null
+                if (Settings.feedVideos || s.video) SyncLog.add("video loading: " + (url?.let { android.net.Uri.parse(it).host } ?: "none found") + " · " + s.title.take(40))
                 if (url != null && videoKey == s.key) {
+                    attachedKey = s.key
                     video.setMediaItem(MediaItem.fromUri(url))
                     video.prepare()
                     video.playWhenReady = PlayerConnection.isPlaying
@@ -469,7 +484,7 @@ private fun SavedFeed(onSync: () -> Unit, look: Look, keys: List<String>? = null
         val s = byKey[feed[page].key] ?: feed[page]
         val current = PlayerConnection.currentKey == s.key
         FeedPage(
-            s, if (shownKey == s.key) video else null, look, live = false,
+            s, if (attachedKey == s.key) video else null, look, live = false, ready = shownKey == s.key,
             current = current, playing = current && PlayerConnection.isPlaying,
             progress = if (current) PlayerConnection.position.toFloat() / PlayerConnection.duration.coerceAtLeast(1) else 0f,
             onToggle = { if (current) PlayerConnection.toggle() },
@@ -485,6 +500,7 @@ private fun FeedPage(
     s: Sound, video: ExoPlayer?, look: Look, live: Boolean,
     current: Boolean, playing: Boolean, progress: Float, onToggle: () -> Unit,
     speed: Float, onSpeed: (Float) -> Unit, onSeek: (Float) -> Unit, problem: String? = null,
+    ready: Boolean = false,
 ) {
     val (ui0, dx, dy) = look
     val context = LocalContext.current
@@ -567,9 +583,11 @@ private fun FeedPage(
                 },
                 onRelease = { it.player = null },
             )
-            Box(Modifier.fillMaxSize().alpha(ui).background(Brush.verticalGradient(listOf(Color(0x44000000), Color.Transparent, Color.Transparent, Color(0x99000000)))))
-        } else {
-            // No video: the blurred cover and a big spinning record.
+            if (ready) Box(Modifier.fillMaxSize().alpha(ui).background(Brush.verticalGradient(listOf(Color(0x44000000), Color.Transparent, Color.Transparent, Color(0x99000000)))))
+        }
+        // [video] is attached as soon as it's loaded (it can't show a first frame without a view);
+        // until that first frame ([ready]), or with no video: the blurred cover and a big spinning record.
+        if (video == null || !ready) {
             if (s.cover != null) AsyncImage(
                 model = s.cover, contentDescription = null, contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize().let { if (Build.VERSION.SDK_INT >= 31) it.blur(40.dp) else it },
@@ -690,6 +708,13 @@ private fun FeedPage(
             }
         }
     }
+}
+
+/** What a player is doing, for the log when a video doesn't show. */
+private fun stateOf(p: ExoPlayer): String {
+    val state = when (p.playbackState) { Player.STATE_IDLE -> "idle"; Player.STATE_BUFFERING -> "buffering"; Player.STATE_READY -> "ready"; else -> "ended" }
+    val hasVideo = p.currentTracks.groups.any { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
+    return "$state, " + (if (hasVideo) "has a video track" else "no video track") + ", " + (p.videoFormat?.sampleMimeType ?: "no video format")
 }
 
 /** Long press › 2x speed while held: [on] starts it, off puts the old speed back. */
